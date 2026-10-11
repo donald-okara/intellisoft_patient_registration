@@ -11,3 +11,5 @@ settings:
   android:
     namespace: ke.don.intellisoft_patient_registration
     applicationId: ke.don.intellisoft_patient_registration
+    # dev.brewkits:kmpworkmanager requires API 26+
+    minSdk: 26

@@ -12,9 +12,30 @@ dependencies:
   - $compose.hotReload.runtimeApi
   - $libs.androidx.lifecycle.viewmodel.compose
   - $libs.androidx.lifecycle.runtime.compose
+  - io.ktor:ktor-client-core:3.6.0
+  - io.ktor:ktor-client-content-negotiation:3.6.0
+  - io.ktor:ktor-client-logging:3.6.0
+  - io.ktor:ktor-serialization-kotlinx-json:3.6.0
 
 dependencies@android:
   - $compose.uiTooling
+  - androidx.room:room-runtime:2.8.5
+  - androidx.sqlite:sqlite-framework:2.7.1
+  - io.ktor:ktor-client-okhttp:3.6.0
+  - dev.brewkits:kmpworkmanager:3.5.0
+
+dependencies@ios:
+  - io.ktor:ktor-client-darwin:3.6.0
+
+test-dependencies:
+  - io.ktor:ktor-client-mock:3.6.0
+  - org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0
+
+test-dependencies@android:
+  - org.robolectric:robolectric:4.17
+  - junit:junit:4.13.2
+  - androidx.test:core:1.7.0
+  - dev.brewkits:kmpworker-testing:3.5.0
 
 settings:
   compose:
@@ -23,3 +44,12 @@ settings:
       packageName: ke.don.intellisoft_patient_registration.resources
       # Generate public accessors so other modules (and previews) can use Res.*
       exposedAccessors: true
+  ktor: enabled
+  kotlin:
+    serialization: json
+
+settings@android:
+  kotlin:
+    ksp:
+      processors:
+        - androidx.room:room-compiler:2.8.5

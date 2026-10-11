@@ -82,6 +82,34 @@ local save on network success — the assignment only asks that submission be *t
 faked/mocked-API repository test is explicitly required, implying the repository layer should
 be testable without a live network call.
 
+## Infra already wired (Room, Ktor, kmpworkmanager)
+
+All three are Android-only for now — see `DESIGN.md` for why. Don't re-derive the setup below;
+extend it.
+
+- **Room** (`androidx.room:room-runtime:2.8.5`, KSP processor
+  `androidx.room:room-compiler:2.8.5` scoped to `settings@android` in `shared/module.yaml`).
+  Use `androidx.sqlite:sqlite-framework:2.7.1` + `AndroidSQLiteDriver` (not
+  `sqlite-bundled`/`BundledSQLiteDriver` — that one needs a native lib Robolectric can't load).
+  Any Room DAO test needs `@RunWith(RobolectricTestRunner::class)` + `@Config(manifest =
+  Config.NONE)` (JUnit4, via the vintage engine) because Room's Android builder requires a real
+  `Context`.
+- **Ktor + kotlinx.serialization**: `settings.ktor: enabled` and `settings.kotlin.serialization:
+  json` in `shared/module.yaml` — both are Amper built-ins, already pinned to current stable
+  (3.6.0 / 1.11.0), don't hand-pin versions. `provideHttpClient(engine, authTokenProvider)` in
+  `shared/src/infra/HttpClientProvider.kt` is the one client factory — build real API clients on
+  top of it rather than constructing a new `HttpClient` elsewhere. Platform engines:
+  `ktor-client-okhttp` (Android), `ktor-client-darwin` (iOS, wired but unused so far).
+- **kmpworkmanager** (`dev.brewkits:kmpworkmanager:3.5.0`, Android-only dependency). Needs
+  `minSdk: 26` (already set in `androidApp/module.yaml`). Register real workers in
+  `AppWorkerFactory` (`shared/src@android/infra/AppWorkerFactory.kt`) by the name string passed
+  to `enqueue(...)`/`enqueueOneTime(...)` — there's no KSP codegen for this (see `DESIGN.md`).
+  Test scheduling logic against `dev.brewkits:kmpworker-testing`'s `FakeBackgroundTaskScheduler`,
+  not the real scheduler.
+- None of these have Amper-specific docs beyond the generic `settings.kotlin.ksp.processors`
+  mechanism (Room is literally Amper's own documented example for it) — Ktor/serialization are
+  Amper "built-in technologies," Room/kmpworkmanager are plain Maven coordinates.
+
 ## Backend API
 
 See [`docs/endpoints.md`](docs/endpoints.md) for the full reference (curl, payloads,
