@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Lint, build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: ktlint
+        run: ./scripts/ktlint.sh
+
+      - name: Unit tests (Android target)
+        run: ./kotlin test -p android
+
+      - name: Build Android app
+        run: ./kotlin build -m androidApp

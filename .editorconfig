@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 120
+ktlint_code_style = ktlint_official
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Root package (ke.don.intellisoft_patient_registration) contains an underscore, inherited from
+# the generated Amper project's applicationId/bundle id/resources packageName across all three
+# modules. Renaming it is a deliberate, cross-cutting change out of scope for lint setup -
+# revisit intentionally rather than let a lint rule force it incidentally.
+ktlint_standard_package-name = disabled
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
