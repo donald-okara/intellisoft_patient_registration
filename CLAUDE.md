@@ -32,7 +32,9 @@ package:
 
 - **`datasource.remote`** — API clients and anything that talks over the network (currently just
   the shared Ktor `HttpClient` setup).
-- **`datasource.local`** — on-device persistence (currently just Room wiring, test-only so far).
+- **`datasource.local`** — on-device persistence: Room (test-only scaffolding so far) and
+  encrypted token storage (`TokenEncryptor`/`EncryptedTokenStorage` on Android,
+  `KeychainTokenStorage` on iOS, both behind the common `TokenStorage` interface).
 - **`data`** — repositories (combine datasources, expose domain-facing APIs). Doesn't exist yet.
 - **`di`** — Koin modules only. A module should wire things together (`single { ... }` calling
   into `datasource`/`work`/`data`), not contain business logic itself.
@@ -100,18 +102,33 @@ local save on network success — the assignment only asks that submission be *t
 faked/mocked-API repository test is explicitly required, implying the repository layer should
 be testable without a live network call.
 
-## Infra already wired (Room, Ktor, kmpworkmanager, Koin)
+## Infra already wired (Room, Ktor, kmpworkmanager, Koin, token storage)
 
-All three are Android-only for now — see `DESIGN.md` for why. Don't re-derive the setup below;
-extend it.
+kmpworkmanager is Android-only; Room, Ktor, DataStore, and token storage target both Android and
+iOS (iOS is dependency-resolution-verified only — no Xcode on this dev machine, see `DESIGN.md`
+for what that does and doesn't mean). Don't re-derive the setup below; extend it.
 
-- **Room** (`androidx.room:room-runtime:2.8.5`, KSP processor
-  `androidx.room:room-compiler:2.8.5` scoped to `settings@android` in `shared/module.yaml`).
-  Use `androidx.sqlite:sqlite-framework:2.7.1` + `AndroidSQLiteDriver` (not
-  `sqlite-bundled`/`BundledSQLiteDriver` — that one needs a native lib Robolectric can't load).
-  Any Room DAO test needs `@RunWith(RobolectricTestRunner::class)` + `@Config(manifest =
-  Config.NONE)` (JUnit4, via the vintage engine) because Room's Android builder requires a real
-  `Context`.
+- **Room** (`androidx.room:room-runtime:2.8.5`, common dependency; KSP processor
+  `androidx.room:room-compiler:2.8.5` registered under **both** `settings@android` and
+  `settings@ios` in `shared/module.yaml` — Amper's KSP is per-platform, there's no single
+  cross-platform shorthand). Android driver: `androidx.sqlite:sqlite-framework:2.7.1` +
+  `AndroidSQLiteDriver` (not `sqlite-bundled`/`BundledSQLiteDriver` — that one needs a native lib
+  Robolectric can't load). iOS driver: `androidx.sqlite:sqlite-bundled:2.7.1` (the reverse is
+  true there — no `AndroidSQLiteDriver` equivalent on iOS). Entities/DAOs/`@Database` live in
+  **common** source so KSP processes them for both platforms. Any Android Room DAO test needs
+  `@RunWith(RobolectricTestRunner::class)` + `@Config(manifest = Config.NONE)` (JUnit4, via the
+  vintage engine) because Room's Android builder requires a real `Context`.
+- **Token storage** (`datasource.local`, common `TokenStorage` interface): Android —
+  `EncryptedTokenStorage` encrypts with `TokenEncryptor` (`AndroidKeyStore` AES/GCM;
+  `internal constructor(secretKeyProvider: () -> SecretKey)` is the test seam — tests inject an
+  in-memory key instead of going through the keystore, which Robolectric can't shadow) before
+  writing to DataStore (`androidx.datastore:datastore-preferences-core:1.3.0-alpha11`, the
+  multiplatform artifact, common dependency — use `PreferenceDataStoreFactory.createWithPath
+  { okio.Path }`, not the Android-only `create { java.io.File }` overload, so the same call
+  works if DataStore is ever used from common code). iOS — `KeychainTokenStorage` stores
+  directly in Keychain, no DataStore, no custom crypto (Keychain already encrypts at rest; see
+  `DESIGN.md` for why this isn't symmetric with Android). `TokenEncryptor` uses
+  `java.util.Base64`, not `android.util.Base64` (unmocked outside Robolectric).
 - **Ktor + kotlinx.serialization**: `settings.ktor: enabled` and `settings.kotlin.serialization:
   json` in `shared/module.yaml` — both are Amper built-ins, already pinned to current stable
   (3.6.0 / 1.11.0), don't hand-pin versions. `provideHttpClient(engine, authTokenProvider)` in
