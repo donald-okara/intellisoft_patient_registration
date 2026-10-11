@@ -1,4 +1,4 @@
-package ke.don.intellisoft_patient_registration.infra
+package ke.don.intellisoft_patient_registration.work
 
 import dev.brewkits.kmpworkmanager.background.domain.AndroidWorker
 import dev.brewkits.kmpworkmanager.background.domain.AndroidWorkerFactory

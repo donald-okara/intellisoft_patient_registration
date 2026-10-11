@@ -1,4 +1,4 @@
-package ke.don.intellisoft_patient_registration.infra
+package ke.don.intellisoft_patient_registration.datasource.remote
 
 import io.ktor.client.call.body
 import io.ktor.client.engine.mock.MockEngine

@@ -1,4 +1,4 @@
-package ke.don.intellisoft_patient_registration.infra
+package ke.don.intellisoft_patient_registration.datasource.remote
 
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
@@ -14,6 +14,8 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
 const val API_BASE_URL = "https://patientvisitapis.intellisoftkenya.com/api/"
+
+expect fun platformHttpClientEngine(): HttpClientEngine
 
 /** Not wired to real auth storage yet - that lands with the repository layer next phase. */
 fun interface AuthTokenProvider {

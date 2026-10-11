@@ -1,4 +1,4 @@
-package ke.don.intellisoft_patient_registration.infra
+package ke.don.intellisoft_patient_registration.datasource.local
 
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver

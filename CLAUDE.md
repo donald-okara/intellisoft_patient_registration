@@ -22,8 +22,23 @@ non-obvious commented with *why*, not *what*.
 scaffolding — none of the five screens exist yet. Infra (Room, Ktor client, kmpworkmanager,
 Koin) is wired and proven with smoke tests, but not yet wired into a real running app, and no
 domain models/DTOs/entities/mappers exist yet either. Treat the five screens and the domain
-layer as a greenfield build; the infra layer under `shared/src/infra` and
-`shared/src@android/infra` already exists — extend it, don't re-derive it (see below).
+layer as a greenfield build; the layers under `datasource`, `di`, and `work` (see **Package
+layout** and **Infra already wired** below) already exist — extend them, don't re-derive them.
+
+## Package layout
+
+Under root package `ke.don.intellisoft_patient_registration`, by layer — not a grab-bag `infra`
+package:
+
+- **`datasource.remote`** — API clients and anything that talks over the network (currently just
+  the shared Ktor `HttpClient` setup).
+- **`datasource.local`** — on-device persistence (currently just Room wiring, test-only so far).
+- **`data`** — repositories (combine datasources, expose domain-facing APIs). Doesn't exist yet.
+- **`di`** — Koin modules only. A module should wire things together (`single { ... }` calling
+  into `datasource`/`work`/`data`), not contain business logic itself.
+- **`work`** — kmpworkmanager `Worker`/`WorkerFactory` implementations.
+- **`feature.<name>`** — per-screen UI + its ViewModel, one subpackage per feature. Doesn't exist
+  yet (the five screens are still unbuilt).
 
 ## Development workflow
 
@@ -100,24 +115,26 @@ extend it.
 - **Ktor + kotlinx.serialization**: `settings.ktor: enabled` and `settings.kotlin.serialization:
   json` in `shared/module.yaml` — both are Amper built-ins, already pinned to current stable
   (3.6.0 / 1.11.0), don't hand-pin versions. `provideHttpClient(engine, authTokenProvider)` in
-  `shared/src/infra/HttpClientProvider.kt` is the one client factory — build real API clients on
-  top of it rather than constructing a new `HttpClient` elsewhere. Platform engines:
-  `ktor-client-okhttp` (Android), `ktor-client-darwin` (iOS, wired but unused so far).
+  `shared/src/datasource/remote/HttpClientProvider.kt` (`datasource.remote` package) is the one
+  client factory — build real API clients on top of it rather than constructing a new
+  `HttpClient` elsewhere. Platform engines live alongside it as `actual
+  platformHttpClientEngine()`: `ktor-client-okhttp` (Android), `ktor-client-darwin` (iOS, wired
+  but unused so far).
 - **kmpworkmanager** (`dev.brewkits:kmpworkmanager:3.5.0`, Android-only dependency). Needs
   `minSdk: 26` (already set in `androidApp/module.yaml`). Register real workers in
-  `AppWorkerFactory` (`shared/src@android/infra/AppWorkerFactory.kt`) by the name string passed
-  to `enqueue(...)`/`enqueueOneTime(...)` — there's no KSP codegen for this (see `DESIGN.md`).
-  Test scheduling logic against `dev.brewkits:kmpworker-testing`'s `FakeBackgroundTaskScheduler`,
-  not the real scheduler.
+  `AppWorkerFactory` (`shared/src@android/work/AppWorkerFactory.kt`, `work` package) by the name
+  string passed to `enqueue(...)`/`enqueueOneTime(...)` — there's no KSP codegen for this (see
+  `DESIGN.md`). Test scheduling logic against `dev.brewkits:kmpworker-testing`'s
+  `FakeBackgroundTaskScheduler`, not the real scheduler.
 - **Koin** 4.2.2, plain Maven coordinates (no Amper-specific support, no `koin-annotations`
-  KSP). `httpClientModule` (common, `shared/src/infra/AppModule.kt`) provides the platform
-  `HttpClientEngine` (`expect`/`actual platformHttpClientEngine()`) and the `HttpClient` from
-  `provideHttpClient`. `workManagerModule` (`shared/src@android/infra/WorkManagerModule.kt`)
-  provides `AppWorkerFactory`. **No `startKoin {}` call exists anywhere yet** — modules are
-  verified with `Module.verify()` (needs `@OptIn(KoinExperimentalAPI::class)`; the older
-  `checkKoinModules()` is deprecated, don't reach for it) rather than started for real. Add new
-  bindings to these modules as real repositories/view models arrive, rather than creating a new
-  module per feature.
+  KSP). All modules live under the `di` package: `httpClientModule`
+  (`shared/src/di/AppModule.kt`, common) wires `datasource.remote`'s engine + `HttpClient`;
+  `workManagerModule` (`shared/src@android/di/WorkManagerModule.kt`) wires `work`'s
+  `AppWorkerFactory`. **No `startKoin {}` call exists anywhere yet** — modules are verified with
+  `Module.verify()` (needs `@OptIn(KoinExperimentalAPI::class)`; the older `checkKoinModules()`
+  is deprecated, don't reach for it) rather than started for real. Add new bindings to these
+  modules as real repositories/view models arrive, rather than creating a new module per
+  feature.
 - None of these have Amper-specific docs beyond the generic `settings.kotlin.ksp.processors`
   mechanism (Room is literally Amper's own documented example for it) — Ktor/serialization are
   Amper "built-in technologies," Room/kmpworkmanager/Koin are plain Maven coordinates.

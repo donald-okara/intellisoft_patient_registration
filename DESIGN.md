@@ -24,21 +24,24 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   `kotlin.test`-based tests elsewhere.
 - **No KSP-generated worker factories yet.** `kmpworkmanager`'s optional `kmpworker-ksp`
   processor would auto-generate `AndroidWorkerFactory`/`IosWorkerFactory`; a hand-written
-  `AppWorkerFactory` (`shared/src@android/infra/AppWorkerFactory.kt`) does the same job with one
+  `AppWorkerFactory` (`shared/src@android/work/AppWorkerFactory.kt`) does the same job with one
   fewer KSP processor to debug while three libraries were being wired at once. Revisit once
   there are enough real workers for the manual registry to get unwieldy.
 - **Koin for DI**, modules defined but not yet started (no `startKoin {}` anywhere) - same
   "prove the wiring, don't fake production usage" approach as the rest of this phase, verified
   with Koin's `Module.verify()` instead of starting a real app-wide instance.
+- **Package layout is by architectural layer**, not a flat `infra` catch-all:
+  `datasource.remote`/`datasource.local` (Ktor/Room), `di` (Koin modules only — no logic), `work`
+  (kmpworkmanager), and `data`/`feature.<name>` reserved for repositories and per-screen code
+  once they exist.
 
 ## What was simplified or left out
 
 <!-- What was deliberately not built, and why, so it doesn't read as an oversight. -->
 
-- The Room entity/DAO/database and the `NoOpWorker` added while wiring up Room and
-  kmpworkmanager are infra-proof scaffolding, not the real data model - they live in `shared/test@android`
-  (Room) and are clearly marked as throwaway, superseded once real patient entities and workers
-  exist.
+- The Room entity/DAO/database added while wiring up Room is infra-proof scaffolding, not the
+  real data model - it lives in `shared/test@android/datasource/local` and is clearly marked as
+  throwaway, superseded once real patient entities exist.
 - `kmpworkmanager-http` (its built-in HTTP upload/download workers) was skipped - it pins Ktor
   3.1.x, which would conflict with this project's own Ktor 3.6.0 client. Real sync workers will
   call the project's own `HttpClient` instead.
@@ -51,9 +54,9 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
 <!-- Per the brief: state which parts of the code could move to the shared module and which
      could not, even if the final submission is Android-only. -->
 
-- Ktor client configuration (`shared/src/infra/HttpClientProvider.kt`) and kotlinx.serialization
-  models are fully common - only the HTTP engine (`ktor-client-okhttp` for Android,
-  `ktor-client-darwin` is wired for iOS too) is platform-specific.
+- Ktor client configuration (`shared/src/datasource/remote/HttpClientProvider.kt`) and
+  kotlinx.serialization models are fully common - only the HTTP engine (`ktor-client-okhttp` for
+  Android, `ktor-client-darwin` is wired for iOS too) is platform-specific.
 - Room and kmpworkmanager usage is currently Android-only (`shared/src@android`), since this
   phase scoped both to Android per the brief's accepted Android-only submission path. Both
   libraries do support iOS; extending them there would mean adding `settings@ios` KSP scoping

@@ -1,4 +1,4 @@
-package ke.don.intellisoft_patient_registration.infra
+package ke.don.intellisoft_patient_registration.di
 
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
