@@ -57,4 +57,8 @@ interface PatientDao {
         limit: Int,
         offset: Int,
     ): List<PatientEntity>
+
+    /** Candidates for the periodic retry worker - a Retriable push failure leaves the row here. */
+    @Query("SELECT * FROM PatientEntity WHERE synced = 0")
+    suspend fun findUnsynced(): List<PatientEntity>
 }

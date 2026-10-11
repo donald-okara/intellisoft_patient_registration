@@ -85,14 +85,21 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   constraints already, but turning a constraint violation into a user-facing message is
   repository work), ViewModels, and the five screens don't exist yet — this phase is the data
   model everything else builds on.
-- **Flagged, not built: an outbox/retry contract for repository writes that fail on a timeout
-  or IO error** (vs. a validation/server error, which shouldn't retry). Priority TBD — revisit
-  once it's clear whether this is actually needed for the submission. Audited `now-in-android`
-  and `droidconKeKotlin` for prior art first: neither has one (both are pull-only sync apps with
-  no local writes pushed back to a server), so there's nothing to adapt directly. Worth keeping
-  for whenever this lands: droidconKeKotlin's `SafeApiCall.kt` exception classification
-  (`SocketTimeoutException`/`IOException`/etc. as retryable vs. server/client errors as not) is a
-  reusable building block.
+- **Outbox: push failures are classified, not retried blindly** (`data/sync/PushOutcome.kt`,
+  `classifyPush`). `HttpClientProvider` sets `expectSuccess = true` so a non-2xx response throws
+  Ktor's `ClientRequestException`/`ServerResponseException` instead of silently deserializing a
+  `success = false` body; `classifyPush` turns that into `Retriable` (timeout/IOException/5xx) or
+  `NeedsAttention` (401 → `Unauthorized`, any other 4xx → `ValidationFailed`). No schema
+  migration was needed: `Retriable` just leaves `synced = false` (unchanged from before), and
+  `NeedsAttention` deletes the local row immediately, synchronously, as part of the same write
+  that discovered it.
+- **No auto-requeue on re-authentication, and no edit-and-resubmit flow for a purged row** — two
+  deliberate scope cuts, not oversights. A fresh sign-in does not silently resurrect a stale push
+  behind the user's back; they resubmit, same as for a validation failure. That in turn means a
+  purged `ValidationFailed` row has **no path back** until a real edit flow exists — worth
+  stating plainly rather than treating "resubmit" as a complete answer. `RetryUnsyncedPatientsWorker`
+  (kmpworkmanager) retries `Retriable` rows only, on its own periodic interval - no retry-count
+  cap or backoff math, the interval itself is the backoff.
 
 ## Shared KMP module vs. platform-specific
 

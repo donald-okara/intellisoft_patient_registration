@@ -141,4 +141,18 @@ class PatientDaoTest {
 
             assertEquals(listOf("P1"), secondPage.map { it.patientId })
         }
+
+    @Test
+    fun findUnsyncedReturnsOnlyUnsyncedRows() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient("P1"))
+            db.patientDao().insert(patient("P2"))
+            db.patientDao().markSynced("P2", synced = true)
+
+            val unsynced = db.patientDao().findUnsynced()
+            db.close()
+
+            assertEquals(listOf("P1"), unsynced.map { it.patientId })
+        }
 }

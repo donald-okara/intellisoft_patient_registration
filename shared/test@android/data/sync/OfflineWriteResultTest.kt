@@ -19,15 +19,16 @@ import kotlin.test.assertTrue
 @Config(manifest = Config.NONE)
 class OfflineWriteResultTest {
     @Test
-    fun succeedsAndSyncedWhenBothWritesSucceed() =
+    fun succeedsAndSyncedWhenThePushIsSynced() =
         runTest {
             var pushSucceededCalled = false
 
             val result =
                 offlineFirstWrite(
                     localInsert = {},
-                    remotePush = { true },
+                    remotePush = { PushOutcome.Synced },
                     onPushSucceeded = { pushSucceededCalled = true },
+                    onNeedsAttention = { error("should not be called") },
                 )
 
             assertEquals(OfflineWriteResult.Success(synced = true), result)
@@ -35,15 +36,16 @@ class OfflineWriteResultTest {
         }
 
     @Test
-    fun succeedsButUnsyncedWhenThePushReturnsFalse() =
+    fun succeedsButUnsyncedWhenThePushIsRetriable() =
         runTest {
             var pushSucceededCalled = false
 
             val result =
                 offlineFirstWrite(
                     localInsert = {},
-                    remotePush = { false },
+                    remotePush = { PushOutcome.Retriable },
                     onPushSucceeded = { pushSucceededCalled = true },
+                    onNeedsAttention = { error("should not be called") },
                 )
 
             assertEquals(OfflineWriteResult.Success(synced = false), result)
@@ -58,9 +60,29 @@ class OfflineWriteResultTest {
                     localInsert = {},
                     remotePush = { throw RuntimeException("network down") },
                     onPushSucceeded = { error("should not be called") },
+                    onNeedsAttention = { error("should not be called") },
                 )
 
             assertEquals(OfflineWriteResult.Success(synced = false), result)
+        }
+
+    @Test
+    fun needsAttentionPurgesTheLocalRowAndDoesNotMarkSynced() =
+        runTest {
+            var pushSucceededCalled = false
+            var needsAttentionCalled = false
+
+            val result =
+                offlineFirstWrite(
+                    localInsert = {},
+                    remotePush = { PushOutcome.NeedsAttention(NeedsAttentionReason.Unauthorized) },
+                    onPushSucceeded = { pushSucceededCalled = true },
+                    onNeedsAttention = { needsAttentionCalled = true },
+                )
+
+            assertEquals(OfflineWriteResult.NeedsAttention(NeedsAttentionReason.Unauthorized), result)
+            assertTrue(needsAttentionCalled)
+            assertFalse(pushSucceededCalled)
         }
 
     @Test
@@ -71,6 +93,7 @@ class OfflineWriteResultTest {
                     localInsert = { throw SQLiteException("UNIQUE constraint failed") },
                     remotePush = { error("should not be called") },
                     onPushSucceeded = { error("should not be called") },
+                    onNeedsAttention = { error("should not be called") },
                 )
 
             assertEquals(OfflineWriteResult.Conflict, result)
@@ -84,6 +107,7 @@ class OfflineWriteResultTest {
                     localInsert = { throw RuntimeException("encryption failed") },
                     remotePush = { error("should not be called") },
                     onPushSucceeded = { error("should not be called") },
+                    onNeedsAttention = { error("should not be called") },
                 )
 
             assertIs<OfflineWriteResult.Error>(result)

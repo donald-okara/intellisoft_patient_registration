@@ -1,5 +1,6 @@
 package ke.don.intellisoft_patient_registration.data
 
+import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import ke.don.intellisoft_patient_registration.data.sync.Syncable
 import ke.don.intellisoft_patient_registration.domain.Patient
 import ke.don.intellisoft_patient_registration.domain.PatientId
@@ -14,6 +15,11 @@ sealed interface RegisterPatientResult {
     ) : RegisterPatientResult
 
     data object DuplicatePatientId : RegisterPatientResult
+
+    /** The push will never succeed by retrying (401/422) - the registration has been purged, not left stuck. */
+    data class NeedsAttention(
+        val reason: NeedsAttentionReason,
+    ) : RegisterPatientResult
 
     /** Catch-all for anything unexpected (e.g. a PII-encryption failure) - never thrown out raw. */
     data class Error(
@@ -32,4 +38,7 @@ interface PatientRepository : Syncable {
         page: Int,
         pageSize: Int,
     ): List<Patient>
+
+    /** Re-pushes every unsynced patient - called by the periodic retry worker, not user-facing yet. */
+    suspend fun retryUnsyncedPushes()
 }
