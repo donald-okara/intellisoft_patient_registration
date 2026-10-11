@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.first
 /** Encrypts the token with [encryptor] before it ever reaches [dataStore], and decrypts on read. */
 class EncryptedTokenStorage(
     private val dataStore: DataStore<Preferences>,
-    private val encryptor: TokenEncryptor,
+    private val encryptor: FieldEncryptor,
 ) : TokenStorage {
     private val tokenKey = stringPreferencesKey("auth_token")
 
