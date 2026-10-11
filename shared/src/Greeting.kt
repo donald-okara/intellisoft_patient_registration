@@ -1,0 +1,9 @@
+package ke.don.intellisoft_patient_registration
+
+class Greeting {
+    private val platform = getPlatform()
+
+    fun greet(): String {
+        return "Hello, ${platform.name}!"
+    }
+}
