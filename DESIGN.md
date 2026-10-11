@@ -52,6 +52,16 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
 - **Considered and deliberately not built**: crash/error reporting (e.g. Sentry). Worth flagging
   given this handles sensitive health data, but not worth scaffolding code nobody runs — a
   living decision, not a line item to ship.
+- **`data.sync`: a reusable pull-sync contract, built ahead of the repositories that will use
+  it** — `syncList`/`syncOne`, modeled on the `Synchronizer` pattern audited in
+  `now-in-android`/`droidconKeKotlin` (their shape, not their code — both are Android/Gradle,
+  this project isn't). `droidconKeKotlin`'s fetch-and-reconcile-by-key shape fit better than
+  `now-in-android`'s, which needs a change-list/version endpoint this API doesn't have. Neither
+  repo's `Synchronizer` needed to be an interface/shared-instance for us — that exists in NIA
+  specifically to thread one instance through several repositories in a single `WorkManager` run,
+  a pattern not wired here — so this is plain functions. This is the *pull* half of sync (remote
+  → local cache); the *push* half (local write → remote, with retry) is a separately-flagged,
+  still-deferred outbox concern this doesn't depend on.
 
 ## What was simplified or left out
 
@@ -66,8 +76,9 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
 
 ## Shared KMP module vs. platform-specific
 
-- `domain` (models, value classes, BMI), Room entities/DAOs, DTOs, and the mapper logic that
-  doesn't touch encryption are fully common. Platform-specific: HTTP engines (OkHttp/Darwin),
+- `domain` (models, value classes, BMI), Room entities/DAOs, DTOs, the mapper logic that doesn't
+  touch encryption, and `data.sync` (no platform API touched at all) are fully common.
+  Platform-specific: HTTP engines (OkHttp/Darwin),
   Room's database builder + SQLite driver (`sqlite-framework`/`sqlite-bundled`), and
   `FieldEncryptor`'s implementation (`AesGcmEncryptor` vs. Apple's Keychain+cryptography-kotlin
   implementation) — different enough per platform that a shared implementation wouldn't make
