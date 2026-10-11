@@ -18,9 +18,29 @@ non-obvious commented with *why*, not *what*.
 
 ## Current state
 
-This repo is still the generated Amper/Compose Multiplatform template (`App.kt`, `Greeting.kt`,
-`Platform.kt` are boilerplate "Hello World" scaffolding). None of the five screens, the Room
-database, or the API client exist yet — treat this as a greenfield build, not a refactor.
+`App.kt`/`Greeting.kt`/`Platform.kt` are still the generated template's "Hello World"
+scaffolding — none of the five screens exist yet. Infra (Room, Ktor client, kmpworkmanager,
+Koin) is wired and proven with smoke tests, but not yet wired into a real running app, and no
+domain models/DTOs/entities/mappers exist yet either. Treat the five screens and the domain
+layer as a greenfield build; the layers under `datasource`, `di`, and `work` (see **Package
+layout** and **Infra already wired** below) already exist — extend them, don't re-derive them.
+
+## Package layout
+
+Under root package `ke.don.intellisoft_patient_registration`, by layer — not a grab-bag `infra`
+package:
+
+- **`datasource.remote`** — API clients and anything that talks over the network (currently just
+  the shared Ktor `HttpClient` setup).
+- **`datasource.local`** — on-device persistence: Room (test-only scaffolding so far) and
+  encrypted token storage (`TokenEncryptor`/`EncryptedTokenStorage` on Android,
+  `KeychainTokenStorage` on iOS, both behind the common `TokenStorage` interface).
+- **`data`** — repositories (combine datasources, expose domain-facing APIs). Doesn't exist yet.
+- **`di`** — Koin modules only. A module should wire things together (`single { ... }` calling
+  into `datasource`/`work`/`data`), not contain business logic itself.
+- **`work`** — kmpworkmanager `Worker`/`WorkerFactory` implementations.
+- **`feature.<name>`** — per-screen UI + its ViewModel, one subpackage per feature. Doesn't exist
+  yet (the five screens are still unbuilt).
 
 ## Development workflow
 
@@ -82,6 +102,60 @@ local save on network success — the assignment only asks that submission be *t
 faked/mocked-API repository test is explicitly required, implying the repository layer should
 be testable without a live network call.
 
+## Infra already wired (Room, Ktor, kmpworkmanager, Koin, token storage)
+
+kmpworkmanager is Android-only; Room, Ktor, DataStore, and token storage target both Android and
+iOS (iOS is dependency-resolution-verified only — no Xcode on this dev machine, see `DESIGN.md`
+for what that does and doesn't mean). Don't re-derive the setup below; extend it.
+
+- **Room** (`androidx.room:room-runtime:2.8.5`, common dependency; KSP processor
+  `androidx.room:room-compiler:2.8.5` registered under **both** `settings@android` and
+  `settings@ios` in `shared/module.yaml` — Amper's KSP is per-platform, there's no single
+  cross-platform shorthand). Android driver: `androidx.sqlite:sqlite-framework:2.7.1` +
+  `AndroidSQLiteDriver` (not `sqlite-bundled`/`BundledSQLiteDriver` — that one needs a native lib
+  Robolectric can't load). iOS driver: `androidx.sqlite:sqlite-bundled:2.7.1` (the reverse is
+  true there — no `AndroidSQLiteDriver` equivalent on iOS). Entities/DAOs/`@Database` live in
+  **common** source so KSP processes them for both platforms. Any Android Room DAO test needs
+  `@RunWith(RobolectricTestRunner::class)` + `@Config(manifest = Config.NONE)` (JUnit4, via the
+  vintage engine) because Room's Android builder requires a real `Context`.
+- **Token storage** (`datasource.local`, common `TokenStorage` interface): Android —
+  `EncryptedTokenStorage` encrypts with `TokenEncryptor` (`AndroidKeyStore` AES/GCM;
+  `internal constructor(secretKeyProvider: () -> SecretKey)` is the test seam — tests inject an
+  in-memory key instead of going through the keystore, which Robolectric can't shadow) before
+  writing to DataStore (`androidx.datastore:datastore-preferences-core:1.3.0-alpha11`, the
+  multiplatform artifact, common dependency — use `PreferenceDataStoreFactory.createWithPath
+  { okio.Path }`, not the Android-only `create { java.io.File }` overload, so the same call
+  works if DataStore is ever used from common code). iOS — `KeychainTokenStorage` stores
+  directly in Keychain, no DataStore, no custom crypto (Keychain already encrypts at rest; see
+  `DESIGN.md` for why this isn't symmetric with Android). `TokenEncryptor` uses
+  `java.util.Base64`, not `android.util.Base64` (unmocked outside Robolectric).
+- **Ktor + kotlinx.serialization**: `settings.ktor: enabled` and `settings.kotlin.serialization:
+  json` in `shared/module.yaml` — both are Amper built-ins, already pinned to current stable
+  (3.6.0 / 1.11.0), don't hand-pin versions. `provideHttpClient(engine, authTokenProvider)` in
+  `shared/src/datasource/remote/HttpClientProvider.kt` (`datasource.remote` package) is the one
+  client factory — build real API clients on top of it rather than constructing a new
+  `HttpClient` elsewhere. Platform engines live alongside it as `actual
+  platformHttpClientEngine()`: `ktor-client-okhttp` (Android), `ktor-client-darwin` (iOS, wired
+  but unused so far).
+- **kmpworkmanager** (`dev.brewkits:kmpworkmanager:3.5.0`, Android-only dependency). Needs
+  `minSdk: 26` (already set in `androidApp/module.yaml`). Register real workers in
+  `AppWorkerFactory` (`shared/src@android/work/AppWorkerFactory.kt`, `work` package) by the name
+  string passed to `enqueue(...)`/`enqueueOneTime(...)` — there's no KSP codegen for this (see
+  `DESIGN.md`). Test scheduling logic against `dev.brewkits:kmpworker-testing`'s
+  `FakeBackgroundTaskScheduler`, not the real scheduler.
+- **Koin** 4.2.2, plain Maven coordinates (no Amper-specific support, no `koin-annotations`
+  KSP). All modules live under the `di` package: `httpClientModule`
+  (`shared/src/di/AppModule.kt`, common) wires `datasource.remote`'s engine + `HttpClient`;
+  `workManagerModule` (`shared/src@android/di/WorkManagerModule.kt`) wires `work`'s
+  `AppWorkerFactory`. **No `startKoin {}` call exists anywhere yet** — modules are verified with
+  `Module.verify()` (needs `@OptIn(KoinExperimentalAPI::class)`; the older `checkKoinModules()`
+  is deprecated, don't reach for it) rather than started for real. Add new bindings to these
+  modules as real repositories/view models arrive, rather than creating a new module per
+  feature.
+- None of these have Amper-specific docs beyond the generic `settings.kotlin.ksp.processors`
+  mechanism (Room is literally Amper's own documented example for it) — Ktor/serialization are
+  Amper "built-in technologies," Room/kmpworkmanager/Koin are plain Maven coordinates.
+
 ## Backend API
 
 See [`docs/endpoints.md`](docs/endpoints.md) for the full reference (curl, payloads,
@@ -115,9 +189,8 @@ The assignment explicitly requires, and graders will check for:
 ## Deliverables this repo still owes
 
 - **Git history across ≥2 working sessions** — commit incrementally as features land, not as
-  one bulk commit at the end; this is graded. (Note: as of this writing the directory is not
-  yet a git repository — don't `git init` or make the first commit without the user's
-  go-ahead.)
+  one bulk commit at the end; this is graded. Git is set up with a GitHub remote; follow the
+  branch + PR workflow above for every change.
 - **`DESIGN.md`** (root, one page max): 2–3 key design/architecture/library/data-model
   decisions and why, plus what was deliberately simplified or left out. Keep it factual and
   short — detailed trade-off discussion happens live, not in the doc.
