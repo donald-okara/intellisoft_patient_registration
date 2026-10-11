@@ -3,13 +3,20 @@ package ke.don.intellisoft_patient_registration.data
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import ke.don.intellisoft_patient_registration.data.mapper.FakeFieldEncryptor
 import ke.don.intellisoft_patient_registration.data.mapper.PatientMapper
 import ke.don.intellisoft_patient_registration.data.mapper.ThrowingFieldEncryptor
+import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
+import ke.don.intellisoft_patient_registration.datasource.remote.KtorPatientApi
+import ke.don.intellisoft_patient_registration.datasource.remote.PatientApi
 import ke.don.intellisoft_patient_registration.datasource.remote.dto.ApiResponse
 import ke.don.intellisoft_patient_registration.datasource.remote.dto.PatientDto
 import ke.don.intellisoft_patient_registration.datasource.remote.dto.ProceedMessageDataDto
+import ke.don.intellisoft_patient_registration.datasource.remote.provideHttpClient
 import ke.don.intellisoft_patient_registration.domain.DateOfBirth
 import ke.don.intellisoft_patient_registration.domain.FirstName
 import ke.don.intellisoft_patient_registration.domain.Gender
@@ -26,6 +33,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -37,7 +45,7 @@ import kotlin.test.assertTrue
 @Config(manifest = Config.NONE)
 class DefaultPatientRepositoryTest {
     private fun newRepository(
-        api: FakePatientApi = FakePatientApi(),
+        api: PatientApi = FakePatientApi(),
         mapper: PatientMapper = PatientMapper(FakeFieldEncryptor()),
     ): Pair<DefaultPatientRepository, AppDatabase> {
         val db =
@@ -47,6 +55,9 @@ class DefaultPatientRepositoryTest {
                 .build()
         return DefaultPatientRepository(db.patientDao(), api, mapper) to db
     }
+
+    private fun apiRespondingWith(status: HttpStatusCode): PatientApi =
+        KtorPatientApi(provideHttpClient(MockEngine { respond(content = "{}", status = status) }))
 
     private fun patient(patientId: String = "P1") =
         Patient(
@@ -108,6 +119,102 @@ class DefaultPatientRepositoryTest {
 
             assertEquals(RegisterPatientResult.DuplicatePatientId, result)
             assertEquals(1, api.registerCallCount)
+        }
+
+    @Test
+    fun registerReturnsNeedsAttentionAndPurgesTheRowWhenUnauthorized() =
+        runTest {
+            val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.Unauthorized))
+
+            val result = repository.registerPatient(patient())
+            val stored = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertEquals(RegisterPatientResult.NeedsAttention(NeedsAttentionReason.Unauthorized), result)
+            assertNull(stored)
+        }
+
+    @Test
+    fun registerReturnsNeedsAttentionAndPurgesTheRowWhenValidationFails() =
+        runTest {
+            val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.UnprocessableEntity))
+
+            val result = repository.registerPatient(patient())
+            val stored = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertEquals(RegisterPatientResult.NeedsAttention(NeedsAttentionReason.ValidationFailed), result)
+            assertNull(stored)
+        }
+
+    @Test
+    fun resubmittingAfterNeedsAttentionSucceedsAsAFreshRegistration() =
+        runTest {
+            val db =
+                Room
+                    .inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), AppDatabase::class.java)
+                    .setDriver(AndroidSQLiteDriver())
+                    .build()
+            val mapper = PatientMapper(FakeFieldEncryptor())
+            val rejecting =
+                DefaultPatientRepository(db.patientDao(), apiRespondingWith(HttpStatusCode.Unauthorized), mapper)
+            rejecting.registerPatient(patient())
+
+            val retrying = DefaultPatientRepository(db.patientDao(), FakePatientApi(), mapper)
+            val result = retrying.registerPatient(patient())
+            db.close()
+
+            assertEquals(RegisterPatientResult.Success(synced = true), result)
+        }
+
+    @Test
+    fun retryUnsyncedPushesMarksSyncedOnSuccess() =
+        runTest {
+            val failingApi = FakePatientApi(registerResponse = { throw RuntimeException("network down") })
+            val (repository, db) = newRepository(failingApi)
+            repository.registerPatient(patient())
+
+            val succeedingRepository =
+                DefaultPatientRepository(db.patientDao(), FakePatientApi(), PatientMapper(FakeFieldEncryptor()))
+            succeedingRepository.retryUnsyncedPushes()
+            val stored = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertTrue(stored?.synced == true)
+        }
+
+    @Test
+    fun retryUnsyncedPushesLeavesStillRetriableRowsAlone() =
+        runTest {
+            val failingApi = FakePatientApi(registerResponse = { throw RuntimeException("network down") })
+            val (repository, db) = newRepository(failingApi)
+            repository.registerPatient(patient())
+
+            repository.retryUnsyncedPushes()
+            val stored = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertFalse(stored?.synced == true)
+        }
+
+    @Test
+    fun retryUnsyncedPushesPurgesRowsThatNowNeedAttention() =
+        runTest {
+            val failingApi = FakePatientApi(registerResponse = { throw RuntimeException("network down") })
+            val (repository, db) = newRepository(failingApi)
+            repository.registerPatient(patient())
+
+            val rejectingRepository =
+                DefaultPatientRepository(
+                    db.patientDao(),
+                    apiRespondingWith(HttpStatusCode.Unauthorized),
+                    PatientMapper(FakeFieldEncryptor()),
+                )
+            rejectingRepository.retryUnsyncedPushes()
+            val stored = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertNull(stored)
         }
 
     @Test

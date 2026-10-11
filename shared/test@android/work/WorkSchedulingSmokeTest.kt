@@ -1,8 +1,10 @@
 package ke.don.intellisoft_patient_registration.work
 
 import dev.brewkits.kmpworkmanager.background.domain.ScheduleResult
+import dev.brewkits.kmpworkmanager.background.domain.WorkerEnvironment
 import dev.brewkits.kmpworkmanager.background.domain.enqueueOneTime
 import dev.brewkits.kmpworkmanager.testing.FakeBackgroundTaskScheduler
+import ke.don.intellisoft_patient_registration.data.FakePatientRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,5 +39,26 @@ class WorkSchedulingSmokeTest {
             val worker = factory.createWorker("NoOpWorker")
 
             assertTrue(worker is NoOpWorker)
+        }
+
+    @Test
+    fun factoryResolvesRetryUnsyncedPatientsWorkerWhenGivenARepository() =
+        runTest {
+            val factory = AppWorkerFactory(patientRepository = FakePatientRepository())
+
+            val worker = factory.createWorker("RetryUnsyncedPatientsWorker")
+
+            assertTrue(worker is RetryUnsyncedPatientsWorker)
+        }
+
+    @Test
+    fun retryUnsyncedPatientsWorkerCallsTheRepository() =
+        runTest {
+            val repository = FakePatientRepository()
+            val worker = RetryUnsyncedPatientsWorker(repository)
+
+            worker.doWork(input = null, env = WorkerEnvironment())
+
+            assertEquals(1, repository.retryUnsyncedPushesCallCount)
         }
 }

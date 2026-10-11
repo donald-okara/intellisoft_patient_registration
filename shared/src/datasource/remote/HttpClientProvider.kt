@@ -28,6 +28,8 @@ fun provideHttpClient(
     authTokenProvider: AuthTokenProvider = AuthTokenProvider { null },
 ): HttpClient =
     HttpClient(engine) {
+        // Makes a non-2xx response throw ClientRequestException/ServerResponseException - see data.sync.classifyPush.
+        expectSuccess = true
         install(ContentNegotiation) {
             json(
                 Json {

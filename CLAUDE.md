@@ -219,10 +219,10 @@ rather than re-deriving it:
 ## Syncable contract (`data.sync`)
 
 Reusable pull-sync building blocks, built ahead of the repositories that will use them — this
-is the *remote → local cache* direction, not local-write-then-push (see **Data flow** above,
-and the deferred outbox note in `DESIGN.md` for the write-retry direction, which this doesn't
-cover). Both are plain `suspend` functions, no interface/shared-instance threading (no Koin
-registration — nothing consumes them yet):
+is the *remote → local cache* direction, not local-write-then-push (see **Data flow** above and
+**Repositories**' outbox note below for the write-retry direction, which this doesn't cover).
+Both are plain `suspend` functions, no interface/shared-instance threading (no Koin registration
+— nothing consumes them yet):
 
 - **`syncList(remoteFetcher, localKeysFetcher, remoteKeySelector, localUpsert, localDelete,
   keepLocalWhenRemoteIsEmpty = false): Boolean`** — fetch a remote list, upsert what's present,
@@ -275,8 +275,22 @@ Overweight repositories to repeat:
   Ordered most-recently-registered first (`registrationDate DESC`, which sorts correctly as a
   string since it's ISO-8601), `patientId ASC` as a deterministic tiebreaker. `findAll()` (no
   pagination) stays, for `sync()`'s key-reconciliation use, which genuinely needs every local key.
-- **Outbox/retry for push failures**: see `DESIGN.md` — being actively built on a follow-up
-  branch as of this writing, not yet merged.
+- **Outbox/retry for push failures** (`data/sync/PushOutcome.kt`): `offlineFirstWrite`'s
+  `remotePush` returns `PushOutcome` (`Synced`/`Retriable`/`NeedsAttention(reason)`), not a bare
+  `Boolean` — classified by `classifyPush`, which requires `HttpClientProvider`'s
+  `expectSuccess = true` (a non-2xx response throws Ktor's `ClientRequestException`/
+  `ServerResponseException` instead of silently deserializing a `success = false` body). 401 →
+  `Unauthorized`, any other 4xx → `ValidationFailed`, 5xx/timeout/IOException → `Retriable`.
+  `NeedsAttention` purges the local row immediately via `onNeedsAttention` (e.g.
+  `patientDao.deleteByPatientIds(...)`) rather than leaving it stuck — a 401/422 will never
+  succeed by retrying, and a stuck row would permanently collide with the same uniqueness
+  constraint that detects duplicates, blocking the only real recovery path (resubmit from
+  scratch). Deliberately **not** built: auto-requeue on re-authentication (signing back in
+  should not silently resurrect a stale push) and an edit-and-resubmit flow for a purged
+  `ValidationFailed` row (no edit UI exists, so that row has no path back at all right now —
+  stated plainly, not papered over). `RetryUnsyncedPatientsWorker` (`work/AppWorkerFactory.kt`)
+  retries `Retriable` rows (`PatientDao.findUnsynced()`) on kmpworkmanager's own periodic
+  interval — no retry-count cap or backoff math, the interval itself is the backoff.
 
 ## Backend API
 
