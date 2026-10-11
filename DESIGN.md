@@ -27,6 +27,9 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   `AppWorkerFactory` (`shared/src@android/infra/AppWorkerFactory.kt`) does the same job with one
   fewer KSP processor to debug while three libraries were being wired at once. Revisit once
   there are enough real workers for the manual registry to get unwieldy.
+- **Koin for DI**, modules defined but not yet started (no `startKoin {}` anywhere) - same
+  "prove the wiring, don't fake production usage" approach as the rest of this phase, verified
+  with Koin's `Module.verify()` instead of starting a real app-wide instance.
 
 ## What was simplified or left out
 
@@ -41,6 +44,7 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   call the project's own `HttpClient` instead.
 - No `KmpWorkManager.initialize(...)` call exists yet in a real `Application` class - there's no
   real worker to run in production yet, so that wiring is deferred to the phase that adds one.
+  Same for Koin: no `startKoin {}` call, no Android `Application` class/manifest change.
 
 ## Shared KMP module vs. platform-specific
 

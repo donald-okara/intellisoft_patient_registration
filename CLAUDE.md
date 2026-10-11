@@ -18,9 +18,12 @@ non-obvious commented with *why*, not *what*.
 
 ## Current state
 
-This repo is still the generated Amper/Compose Multiplatform template (`App.kt`, `Greeting.kt`,
-`Platform.kt` are boilerplate "Hello World" scaffolding). None of the five screens, the Room
-database, or the API client exist yet — treat this as a greenfield build, not a refactor.
+`App.kt`/`Greeting.kt`/`Platform.kt` are still the generated template's "Hello World"
+scaffolding — none of the five screens exist yet. Infra (Room, Ktor client, kmpworkmanager,
+Koin) is wired and proven with smoke tests, but not yet wired into a real running app, and no
+domain models/DTOs/entities/mappers exist yet either. Treat the five screens and the domain
+layer as a greenfield build; the infra layer under `shared/src/infra` and
+`shared/src@android/infra` already exists — extend it, don't re-derive it (see below).
 
 ## Development workflow
 
@@ -82,7 +85,7 @@ local save on network success — the assignment only asks that submission be *t
 faked/mocked-API repository test is explicitly required, implying the repository layer should
 be testable without a live network call.
 
-## Infra already wired (Room, Ktor, kmpworkmanager)
+## Infra already wired (Room, Ktor, kmpworkmanager, Koin)
 
 All three are Android-only for now — see `DESIGN.md` for why. Don't re-derive the setup below;
 extend it.
@@ -106,9 +109,18 @@ extend it.
   to `enqueue(...)`/`enqueueOneTime(...)` — there's no KSP codegen for this (see `DESIGN.md`).
   Test scheduling logic against `dev.brewkits:kmpworker-testing`'s `FakeBackgroundTaskScheduler`,
   not the real scheduler.
+- **Koin** 4.2.2, plain Maven coordinates (no Amper-specific support, no `koin-annotations`
+  KSP). `httpClientModule` (common, `shared/src/infra/AppModule.kt`) provides the platform
+  `HttpClientEngine` (`expect`/`actual platformHttpClientEngine()`) and the `HttpClient` from
+  `provideHttpClient`. `workManagerModule` (`shared/src@android/infra/WorkManagerModule.kt`)
+  provides `AppWorkerFactory`. **No `startKoin {}` call exists anywhere yet** — modules are
+  verified with `Module.verify()` (needs `@OptIn(KoinExperimentalAPI::class)`; the older
+  `checkKoinModules()` is deprecated, don't reach for it) rather than started for real. Add new
+  bindings to these modules as real repositories/view models arrive, rather than creating a new
+  module per feature.
 - None of these have Amper-specific docs beyond the generic `settings.kotlin.ksp.processors`
   mechanism (Room is literally Amper's own documented example for it) — Ktor/serialization are
-  Amper "built-in technologies," Room/kmpworkmanager are plain Maven coordinates.
+  Amper "built-in technologies," Room/kmpworkmanager/Koin are plain Maven coordinates.
 
 ## Backend API
 
@@ -143,9 +155,8 @@ The assignment explicitly requires, and graders will check for:
 ## Deliverables this repo still owes
 
 - **Git history across ≥2 working sessions** — commit incrementally as features land, not as
-  one bulk commit at the end; this is graded. (Note: as of this writing the directory is not
-  yet a git repository — don't `git init` or make the first commit without the user's
-  go-ahead.)
+  one bulk commit at the end; this is graded. Git is set up with a GitHub remote; follow the
+  branch + PR workflow above for every change.
 - **`DESIGN.md`** (root, one page max): 2–3 key design/architecture/library/data-model
   decisions and why, plus what was deliberately simplified or left out. Keep it factual and
   short — detailed trade-off discussion happens live, not in the doc.
