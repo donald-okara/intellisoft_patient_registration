@@ -63,6 +63,18 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   → local cache); the *push* half (local write → remote, with retry) is a separately-flagged,
   still-deferred outbox concern this doesn't depend on.
 
+- **Repositories wrap a shared `offlineFirstWrite` local-first pattern** (`data/sync/
+  OfflineWriteResult.kt`): insert to Room first (whose own uniqueness constraint *is* the
+  duplicate/already-submitted-today check — no separate validation query needed), then one
+  best-effort remote push; a push failure never changes the local result the caller sees. Each
+  repository maps the generic `OfflineWriteResult` to a domain-named result
+  (`RegisterPatientResult.DuplicatePatientId`, not a generic `Conflict`) so the reusable logic
+  doesn't cost readability. Built once with `PatientRepository`, reused as-is by Vitals/General/
+  Overweight next.
+- **Pagination uses plain Room `LIMIT`/`OFFSET`, not AndroidX Paging** — `getPatients(page,
+  pageSize)` is a one-shot `List<Patient>` return, not a reactive paged stream, and pulling in a
+  whole new library for that wasn't justified.
+
 ## What was simplified or left out
 
 - `kmpworkmanager-http` was skipped — pins Ktor 3.1.x, conflicting with this project's own Ktor

@@ -24,17 +24,19 @@ class PatientDaoTest {
             ).setDriver(AndroidSQLiteDriver())
             .build()
 
-    private fun patient(patientId: String = "P1") =
-        PatientEntity(
-            patientId = patientId,
-            serverId = null,
-            registrationDate = "2025-10-31",
-            firstName = "Jane",
-            lastName = "Doe",
-            dateOfBirth = "2000-01-01",
-            gender = "FEMALE",
-            synced = false,
-        )
+    private fun patient(
+        patientId: String = "P1",
+        registrationDate: String = "2025-10-31",
+    ) = PatientEntity(
+        patientId = patientId,
+        serverId = null,
+        registrationDate = registrationDate,
+        firstName = "Jane",
+        lastName = "Doe",
+        dateOfBirth = "2000-01-01",
+        gender = "FEMALE",
+        synced = false,
+    )
 
     @Test
     fun insertedPatientIsReturnedById() =
@@ -69,5 +71,74 @@ class PatientDaoTest {
                 db.patientDao().insert(patient())
             }
             db.close()
+        }
+
+    @Test
+    fun upsertReplacesAnExistingRowInsteadOfFailing() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient())
+
+            db.patientDao().upsert(listOf(patient().copy(firstName = "Updated")))
+            val found = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertEquals("Updated", found?.firstName)
+        }
+
+    @Test
+    fun markSyncedUpdatesOnlyTheSyncedFlag() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient())
+
+            db.patientDao().markSynced("P1", synced = true)
+            val found = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertEquals(true, found?.synced)
+            assertEquals("Jane", found?.firstName)
+        }
+
+    @Test
+    fun deleteByPatientIdsRemovesOnlyTheGivenIds() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient("P1"))
+            db.patientDao().insert(patient("P2"))
+
+            db.patientDao().deleteByPatientIds(setOf("P1"))
+            val remaining = db.patientDao().findAll()
+            db.close()
+
+            assertEquals(listOf("P2"), remaining.map { it.patientId })
+        }
+
+    @Test
+    fun findPageOrdersMostRecentlyRegisteredFirst() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient("P1", registrationDate = "2025-10-01"))
+            db.patientDao().insert(patient("P2", registrationDate = "2025-10-31"))
+            db.patientDao().insert(patient("P3", registrationDate = "2025-10-15"))
+
+            val page = db.patientDao().findPage(limit = 10, offset = 0)
+            db.close()
+
+            assertEquals(listOf("P2", "P3", "P1"), page.map { it.patientId })
+        }
+
+    @Test
+    fun findPageRespectsLimitAndOffset() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient("P1", registrationDate = "2025-10-01"))
+            db.patientDao().insert(patient("P2", registrationDate = "2025-10-31"))
+            db.patientDao().insert(patient("P3", registrationDate = "2025-10-15"))
+
+            val secondPage = db.patientDao().findPage(limit = 2, offset = 2)
+            db.close()
+
+            assertEquals(listOf("P1"), secondPage.map { it.patientId })
         }
 }

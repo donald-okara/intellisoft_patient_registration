@@ -20,12 +20,14 @@ non-obvious commented with *why*, not *what*.
 
 `App.kt`/`Greeting.kt`/`Platform.kt` are still the generated template's "Hello World"
 scaffolding — none of the five screens exist yet. Infra (Room, Ktor client, kmpworkmanager,
-Koin, encrypted token/PII storage) is wired and proven, and the real data model now exists too:
-domain models (with value-class IDs/PII), Room entities/DAOs, DTOs matching `docs/endpoints.md`,
-and the mappers between them (see **Data model** below) — but none of it is wired into a real
-running app yet (no `startKoin {}`, no repositories, no ViewModels). Treat the five screens and
-the repository layer as a greenfield build; everything under `domain`, `datasource`, `di`,
-`work`, and `data.mapper` already exists — extend it, don't re-derive it.
+Koin, encrypted token/PII storage) is wired and proven, the data model exists (domain models,
+Room entities/DAOs, DTOs, mappers), and the first full vertical slice — API clients, auth token
+bridging, and `PatientRepository` — is built and tested too (see **Repositories** below). Still
+missing: `startKoin {}`, ViewModels, the five screens, and the Vitals/General/Overweight
+repositories (same pattern as `PatientRepository`, not yet built). Treat the five screens and
+the remaining repositories as a greenfield build; everything under `domain`, `datasource`, `di`,
+`work`, `data.mapper`, and `data` (API clients + `PatientRepository`) already exists — extend
+it, don't re-derive it.
 
 ## Package layout
 
@@ -41,10 +43,11 @@ package:
   encrypted storage — token (`AesGcmEncryptor`/`EncryptedTokenStorage` on Android,
   `KeychainTokenStorage` on iOS, behind `TokenStorage`) and PII columns (same `AesGcmEncryptor`
   with a different key alias on Android, `AppleFieldEncryptor` on iOS, behind `FieldEncryptor`).
-- **`data`** — repositories (combine datasources, expose domain-facing APIs). Doesn't exist yet.
-  **`data.mapper`** — entity ↔ domain and domain ↔ DTO conversions already exist here, ahead of
-  the repositories that will use them. **`data.sync`** — the reusable pull-sync contract
-  (`syncList`/`syncOne`/`Syncable`), also built ahead of the repositories that will use it.
+- **`data`** — repositories (combine datasources, expose domain-facing APIs). `PatientRepository`/
+  `DefaultPatientRepository` exist now (see **Repositories** below); Vitals/General/Overweight
+  repositories don't yet. **`data.mapper`** — entity ↔ domain and domain ↔ DTO conversions.
+  **`data.sync`** — the reusable pull-sync contract (`syncList`/`syncOne`/`Syncable`) and the
+  local-first write contract (`offlineFirstWrite`/`OfflineWriteResult`, see **Repositories**).
 - **`di`** — Koin modules only. A module should wire things together (`single { ... }` calling
   into `datasource`/`work`/`data`), not contain business logic itself.
 - **`work`** — kmpworkmanager `Worker`/`WorkerFactory` implementations.
@@ -160,12 +163,24 @@ for what that does and doesn't mean). Don't re-derive the setup below; extend it
 - **Koin** 4.2.2, plain Maven coordinates (no Amper-specific support, no `koin-annotations`
   KSP). All modules live under the `di` package: `httpClientModule`
   (`shared/src/di/AppModule.kt`, common) wires `datasource.remote`'s engine + `HttpClient`;
-  `workManagerModule` (`shared/src@android/di/WorkManagerModule.kt`) wires `work`'s
-  `AppWorkerFactory`. **No `startKoin {}` call exists anywhere yet** — modules are verified with
-  `Module.verify()` (needs `@OptIn(KoinExperimentalAPI::class)`; the older `checkKoinModules()`
-  is deprecated, don't reach for it) rather than started for real. Add new bindings to these
-  modules as real repositories/view models arrive, rather than creating a new module per
-  feature.
+  `apiModule` (`di/ApiModule.kt`, common) wires the four Ktor API clients; `authModule`
+  (`di/AuthModule.kt`, common) wires `CachedAuthTokenProvider`, taking `TokenStorage` as a Koin
+  runtime parameter (no `TokenStorage` binding exists yet — nothing else needs one); `mapperModule`
+  (`di/MapperModule.kt`, common) wires `PatientMapper` via `piiEncryptorQualifier`;
+  `repositoryModule` (`di/RepositoryModule.kt`, platform-specific — Android takes a `Context`
+  runtime parameter threaded into `databaseModule`, iOS doesn't need one) wires
+  `PatientRepository`; `workManagerModule` (`shared/src@android/di/WorkManagerModule.kt`) wires
+  `work`'s `AppWorkerFactory`. **No `startKoin {}` call exists anywhere yet** — modules are
+  verified with `Module.verify()`/`verifyAll()` (needs `@OptIn(KoinExperimentalAPI::class)`; the
+  older `checkKoinModules()` is deprecated, don't reach for it) rather than started for real.
+  `verify()` reflects a binding's *declared* type, not what a lambda body actually constructs —
+  `single<SomeInterface> { ConcreteImpl(get()) }` only reflects `SomeInterface`'s (often
+  parameterless) constructor, which can hide real missing dependencies; and it checks
+  constructor parameter *types* only, blind to a qualifier passed via `get(qualifier)` inside the
+  lambda, which needs `injections = injectedParameters(definition<Target>(Param::class))` to
+  avoid a false "missing definition" failure (see `AndroidKoinModuleTest`'s `mapperInjections`).
+  Add new bindings to these modules as real view models arrive, rather than creating a new
+  module per feature.
 - None of these have Amper-specific docs beyond the generic `settings.kotlin.ksp.processors`
   mechanism (Room is literally Amper's own documented example for it) — Ktor/serialization are
   Amper "built-in technologies," Room/kmpworkmanager/Koin are plain Maven coordinates.
@@ -224,6 +239,45 @@ registration — nothing consumes them yet):
   this), closer to `droidconKeKotlin`'s fetch-and-reconcile-by-key shape — `now-in-android`'s
   needs a change-list/version endpoint this API doesn't have.
 
+## Repositories (`data`)
+
+The pattern `PatientRepository`/`DefaultPatientRepository` establish, for Vitals/General/
+Overweight repositories to repeat:
+
+- **API clients** (`datasource.remote`, common): one interface + one Ktor-backed impl per
+  endpoint group (`AuthApi`/`PatientApi`/`VitalsApi`/`VisitApi`), interfaces so repository tests
+  can fake them. Each method returns the real `ApiResponse<T>` envelope as-is — interpreting
+  `success`/`data` is the repository's job, not the client's. `HttpClientProvider` sets both
+  `accept` and `contentType` to JSON in `defaultRequest` — without the latter, Ktor's
+  `ContentNegotiation` never serializes a POST body (`setBody(dto)` silently fails to attach
+  `Content-Type`, discovered by actually exercising `KtorPatientApiTest` against `MockEngine`).
+- **Auth token bridging**: `AuthTokenProvider.currentToken()` (`HttpClientProvider.kt`) is
+  synchronous — called inside Ktor's non-suspend `defaultRequest {}` — but `TokenStorage` is
+  suspend. `CachedAuthTokenProvider` (`data/CachedAuthTokenProvider.kt`) bridges them: an
+  in-memory cache for the sync read, `suspend fun setToken`/`clearToken`/`hydrate` as the only
+  places touching `TokenStorage`. Not yet wired into `httpClientModule` — no real sign-in flow
+  exists to call `setToken` yet.
+- **Local-first writes**: `offlineFirstWrite` (`data/sync/OfflineWriteResult.kt`) is the shared
+  shape every registration/submission repository uses — insert locally first (a `SQLiteException`
+  from the entity's own uniqueness constraint *is* the duplicate/already-submitted-today
+  rejection, mapped to `OfflineWriteResult.Conflict`), then one best-effort remote push. Anything
+  else unexpected (e.g. a PII-encryption failure) becomes `OfflineWriteResult.Error` rather than
+  throwing raw — `registerPatient`'s per-repository result type (`RegisterPatientResult`) maps
+  each `OfflineWriteResult` case to a domain-named equivalent (`DuplicatePatientId`, not
+  `Conflict`) for readability, while reusing the generic logic underneath. A push failure never
+  changes the *local* result the caller sees (`Success(synced: Boolean)`), matching "don't block
+  the local save on network success." `CancellationException` is explicitly rethrown in two
+  places (the remote push's own catch, and the outer catch) — a bare `catch (e: Exception)`
+  would otherwise swallow coroutine cancellation.
+- **Pagination**: `getPatients(page, pageSize)` uses a plain Room `LIMIT`/`OFFSET` query
+  (`PatientDao.findPage`), not the AndroidX Paging library — no `androidx.paging` dependency
+  exists in this project and pulling one in for a `List<Patient>` return type wasn't justified.
+  Ordered most-recently-registered first (`registrationDate DESC`, which sorts correctly as a
+  string since it's ISO-8601), `patientId ASC` as a deterministic tiebreaker. `findAll()` (no
+  pagination) stays, for `sync()`'s key-reconciliation use, which genuinely needs every local key.
+- **Outbox/retry for push failures**: see `DESIGN.md` — being actively built on a follow-up
+  branch as of this writing, not yet merged.
+
 ## Backend API
 
 See [`docs/endpoints.md`](docs/endpoints.md) for the full reference (curl, payloads,
@@ -250,13 +304,16 @@ The assignment explicitly requires, and graders will check for:
 
 1. ✅ Unit tests for BMI calculation and BMI-status classification, including boundary values —
    `BmiTest.kt`.
-2. Unit tests for form validation: mandatory fields are UI-phase work; duplicate Patient ID and
-   one-submission-per-date are DB constraints, already covered at the DAO level
-   (`PatientDaoTest`/`VitalsDaoTest`/etc.) — a repository test translating the constraint
-   violation into a user-facing validation error is still owed once a repository exists.
+2. Unit tests for form validation: mandatory fields are UI-phase work; duplicate Patient ID is a
+   DB constraint, covered at both the DAO level (`PatientDaoTest`) and translated into
+   `RegisterPatientResult.DuplicatePatientId` at the repository level
+   (`DefaultPatientRepositoryTest`). One-submission-per-date is covered at the DAO level
+   (`VitalsDaoTest`/etc.) for now; the equivalent repository-level translation lands with the
+   Vitals/General/Overweight repositories.
 3. ✅ Room DAO tests — one per entity (`PatientDaoTest`, `VitalsDaoTest`,
    `GeneralAssessmentDaoTest`, `OverweightAssessmentDaoTest`), more than the minimum asked for.
-4. Still owed: one repository test using a faked or mocked API — no repository exists yet.
+4. ✅ Repository test using a faked API, not a live network call — `DefaultPatientRepositoryTest`
+   (`FakePatientApi` + a real in-memory Room DB).
 
 ## Deliverables this repo still owes
 
