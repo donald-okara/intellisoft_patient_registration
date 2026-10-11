@@ -32,9 +32,11 @@ These are working rules for this repo, not suggestions — follow them for every
    "method X was called" is testing the wrong thing.
 2. **Branch + PR for everything.** No direct commits to the main branch. Every change — plan,
    feature, fix — lives on its own branch and lands via a pull request.
-3. **Merge gate.** ktlint and the full test suite must pass before any PR merges. (ktlint isn't
-   configured in this Amper project yet — set it up as part of whichever phase first touches
-   CI/lint, don't assume it's already wired in.)
+3. **Merge gate.** ktlint and the full test suite must pass before any PR merges. Amper has no
+   built-in ktlint integration, so `scripts/ktlint.sh` runs the standalone ktlint CLI directly
+   (pinned version, checksum-verified, self-bootstraps like `./kotlin` does); `.github/workflows/ci.yml`
+   runs that same script plus `./kotlin test -p android` and `./kotlin build -m androidApp` on
+   every PR, and `main` is branch-protected on that check passing.
 4. **No co-authorship on commits/PRs.** Do not add `Co-Authored-By` trailers or any Claude
    attribution to commit messages or PR descriptions in this repo.
 5. **Spec-driven, per phase.** For each phase of work: write a plan first, get the user's
@@ -54,6 +56,8 @@ Modules are declared in `module.yaml`/`project.yaml`, dependencies in `libs.vers
 ```
 
 Use the `kotlin`/`kotlin.bat` wrapper scripts, not `gradlew` — there is no Gradle wrapper here.
+`./kotlin test` runs every target including iOS, which needs a working local Xcode install;
+on a machine without one (and in CI), scope it with `./kotlin test -p android`.
 
 - `shared/src` — common code (Compose UI, business logic, data layer interfaces)
 - `shared/src@android`, `shared/src@ios` — platform `actual` implementations
