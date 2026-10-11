@@ -10,6 +10,7 @@ import io.ktor.client.request.accept
 import io.ktor.client.request.header
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
@@ -40,6 +41,7 @@ fun provideHttpClient(
         defaultRequest {
             url(API_BASE_URL)
             accept(ContentType.Application.Json)
+            contentType(ContentType.Application.Json)
             authTokenProvider.currentToken()?.let { token ->
                 header("Authorization", "Bearer $token")
             }
