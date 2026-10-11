@@ -73,6 +73,14 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   constraints already, but turning a constraint violation into a user-facing message is
   repository work), ViewModels, and the five screens don't exist yet — this phase is the data
   model everything else builds on.
+- **Flagged, not built: an outbox/retry contract for repository writes that fail on a timeout
+  or IO error** (vs. a validation/server error, which shouldn't retry). Priority TBD — revisit
+  once it's clear whether this is actually needed for the submission. Audited `now-in-android`
+  and `droidconKeKotlin` for prior art first: neither has one (both are pull-only sync apps with
+  no local writes pushed back to a server), so there's nothing to adapt directly. Worth keeping
+  for whenever this lands: droidconKeKotlin's `SafeApiCall.kt` exception classification
+  (`SocketTimeoutException`/`IOException`/etc. as retryable vs. server/client errors as not) is a
+  reusable building block.
 
 ## Shared KMP module vs. platform-specific
 
