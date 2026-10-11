@@ -43,7 +43,8 @@ package:
   with a different key alias on Android, `AppleFieldEncryptor` on iOS, behind `FieldEncryptor`).
 - **`data`** — repositories (combine datasources, expose domain-facing APIs). Doesn't exist yet.
   **`data.mapper`** — entity ↔ domain and domain ↔ DTO conversions already exist here, ahead of
-  the repositories that will use them.
+  the repositories that will use them. **`data.sync`** — the reusable pull-sync contract
+  (`syncList`/`syncOne`/`Syncable`), also built ahead of the repositories that will use it.
 - **`di`** — Koin modules only. A module should wire things together (`single { ... }` calling
   into `datasource`/`work`/`data`), not contain business logic itself.
 - **`work`** — kmpworkmanager `Worker`/`WorkerFactory` implementations.
@@ -199,6 +200,29 @@ rather than re-deriving it:
   *plaintext* PII (the API needs real values), only the entity side is encrypted. An entity `id`
   of `0` means "not yet persisted" and maps to a `null` domain id, matching Room's
   autoincrement convention.
+
+## Syncable contract (`data.sync`)
+
+Reusable pull-sync building blocks, built ahead of the repositories that will use them — this
+is the *remote → local cache* direction, not local-write-then-push (see **Data flow** above,
+and the deferred outbox note in `DESIGN.md` for the write-retry direction, which this doesn't
+cover). Both are plain `suspend` functions, no interface/shared-instance threading (no Koin
+registration — nothing consumes them yet):
+
+- **`syncList(remoteFetcher, localKeysFetcher, remoteKeySelector, localUpsert, localDelete,
+  keepLocalWhenRemoteIsEmpty = false): Boolean`** — fetch a remote list, upsert what's present,
+  delete local records whose key isn't in the remote result anymore. Pass
+  `keepLocalWhenRemoteIsEmpty = true` for endpoints where an empty response is more likely to
+  mean "request failed" than "there's genuinely nothing" (e.g. `patients/view` — an empty list
+  there would otherwise delete every locally-registered patient).
+- **`syncOne(remoteFetcher, localWrite): Boolean`** — no reconciliation, just fetch-and-write
+  (e.g. caching one `patients/show/{id}` record).
+- **`Syncable`** (`suspend fun sync(): Boolean`) — the contract future repositories implement.
+- Both call `suspendRunCatching` internally (catches everything except `CancellationException`,
+  returns a `Result`) — a network failure returns `false`, it doesn't throw.
+- Modeled on the `Synchronizer` pattern in `now-in-android`/`droidconKeKotlin` (audited for
+  this), closer to `droidconKeKotlin`'s fetch-and-reconcile-by-key shape — `now-in-android`'s
+  needs a change-list/version endpoint this API doesn't have.
 
 ## Backend API
 
