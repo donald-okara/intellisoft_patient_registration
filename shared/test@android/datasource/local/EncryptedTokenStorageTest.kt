@@ -27,7 +27,7 @@ class EncryptedTokenStorageTest {
     private val storage =
         EncryptedTokenStorage(
             dataStore = dataStore,
-            encryptor = TokenEncryptor { inMemoryKey },
+            encryptor = AesGcmEncryptor { inMemoryKey },
         )
 
     @AfterTest
@@ -66,6 +66,6 @@ class EncryptedTokenStorageTest {
             val rawValue = dataStore.data.first()[stringPreferencesKey("auth_token")]
 
             assertFalse(rawValue.isNullOrEmpty())
-            assertFalse(rawValue!!.contains("super-secret-token"))
+            assertFalse(rawValue.contains("super-secret-token"))
         }
 }

@@ -20,22 +20,30 @@ non-obvious commented with *why*, not *what*.
 
 `App.kt`/`Greeting.kt`/`Platform.kt` are still the generated template's "Hello World"
 scaffolding — none of the five screens exist yet. Infra (Room, Ktor client, kmpworkmanager,
-Koin) is wired and proven with smoke tests, but not yet wired into a real running app, and no
-domain models/DTOs/entities/mappers exist yet either. Treat the five screens and the domain
-layer as a greenfield build; the layers under `datasource`, `di`, and `work` (see **Package
-layout** and **Infra already wired** below) already exist — extend them, don't re-derive them.
+Koin, encrypted token/PII storage) is wired and proven, and the real data model now exists too:
+domain models (with value-class IDs/PII), Room entities/DAOs, DTOs matching `docs/endpoints.md`,
+and the mappers between them (see **Data model** below) — but none of it is wired into a real
+running app yet (no `startKoin {}`, no repositories, no ViewModels). Treat the five screens and
+the repository layer as a greenfield build; everything under `domain`, `datasource`, `di`,
+`work`, and `data.mapper` already exists — extend it, don't re-derive it.
 
 ## Package layout
 
 Under root package `ke.don.intellisoft_patient_registration`, by layer — not a grab-bag `infra`
 package:
 
-- **`datasource.remote`** — API clients and anything that talks over the network (currently just
-  the shared Ktor `HttpClient` setup).
-- **`datasource.local`** — on-device persistence: Room (test-only scaffolding so far) and
-  encrypted token storage (`TokenEncryptor`/`EncryptedTokenStorage` on Android,
-  `KeychainTokenStorage` on iOS, both behind the common `TokenStorage` interface).
+- **`domain`** — business types with no framework dependency: `Patient`, `Vitals`,
+  `GeneralAssessment`, `OverweightAssessment`, `Gender`/`HealthStatus` enums, the BMI
+  calculator/classifier, value-class IDs, and the `Redacted`-implementing PII value classes.
+- **`datasource.remote`** — API clients (the shared Ktor `HttpClient` setup) and `dto` (request/
+  response types matching `docs/endpoints.md` exactly, including its field-type quirks).
+- **`datasource.local`** — on-device persistence: the real Room entities/DAOs/`AppDatabase`, and
+  encrypted storage — token (`AesGcmEncryptor`/`EncryptedTokenStorage` on Android,
+  `KeychainTokenStorage` on iOS, behind `TokenStorage`) and PII columns (same `AesGcmEncryptor`
+  with a different key alias on Android, `AppleFieldEncryptor` on iOS, behind `FieldEncryptor`).
 - **`data`** — repositories (combine datasources, expose domain-facing APIs). Doesn't exist yet.
+  **`data.mapper`** — entity ↔ domain and domain ↔ DTO conversions already exist here, ahead of
+  the repositories that will use them.
 - **`di`** — Koin modules only. A module should wire things together (`single { ... }` calling
   into `datasource`/`work`/`data`), not contain business logic itself.
 - **`work`** — kmpworkmanager `Worker`/`WorkerFactory` implementations.
@@ -117,18 +125,23 @@ for what that does and doesn't mean). Don't re-derive the setup below; extend it
   true there — no `AndroidSQLiteDriver` equivalent on iOS). Entities/DAOs/`@Database` live in
   **common** source so KSP processes them for both platforms. Any Android Room DAO test needs
   `@RunWith(RobolectricTestRunner::class)` + `@Config(manifest = Config.NONE)` (JUnit4, via the
-  vintage engine) because Room's Android builder requires a real `Context`.
-- **Token storage** (`datasource.local`, common `TokenStorage` interface): Android —
-  `EncryptedTokenStorage` encrypts with `TokenEncryptor` (`AndroidKeyStore` AES/GCM;
-  `internal constructor(secretKeyProvider: () -> SecretKey)` is the test seam — tests inject an
-  in-memory key instead of going through the keystore, which Robolectric can't shadow) before
-  writing to DataStore (`androidx.datastore:datastore-preferences-core:1.3.0-alpha11`, the
-  multiplatform artifact, common dependency — use `PreferenceDataStoreFactory.createWithPath
-  { okio.Path }`, not the Android-only `create { java.io.File }` overload, so the same call
-  works if DataStore is ever used from common code). iOS — `KeychainTokenStorage` stores
-  directly in Keychain, no DataStore, no custom crypto (Keychain already encrypts at rest; see
-  `DESIGN.md` for why this isn't symmetric with Android). `TokenEncryptor` uses
-  `java.util.Base64`, not `android.util.Base64` (unmocked outside Robolectric).
+  vintage engine) because Room's Android builder requires a real `Context`. `AppDatabase` is the
+  real schema now (`PatientEntity`/`VitalsEntity`/`GeneralAssessmentEntity`/
+  `OverweightAssessmentEntity` — see **Data model** below), wired into Koin's `databaseModule` as
+  a parameterized `single { (context: Context) -> buildAppDatabase(context) }` (Android) /
+  parameterless (iOS, no `Context` needed there).
+- **Token/PII storage** (`datasource.local`, common `TokenStorage`/`FieldEncryptor` interfaces):
+  Android — `AesGcmEncryptor` (`AndroidKeyStore` AES/GCM; `internal constructor(secretKeyProvider:
+  () -> SecretKey)` is the test seam — tests inject an in-memory key instead of going through
+  the keystore, which Robolectric can't shadow; uses `java.util.Base64`, not `android.util.Base64`,
+  unmocked outside Robolectric) is instantiated **twice** via Koin's `cryptoModule`
+  (`tokenEncryptorQualifier`/`piiEncryptorQualifier`, different key aliases) — once backing
+  `EncryptedTokenStorage` (writes to DataStore via `PreferenceDataStoreFactory.createWithPath
+  { okio.Path }`, not the Android-only `create { java.io.File }` overload), once for PII columns
+  consumed directly by `data.mapper`. iOS — `KeychainTokenStorage` stores the token directly in
+  Keychain (no DataStore, no custom crypto needed for a single secret); PII instead uses
+  `AppleFieldEncryptor` (`dev.whyoleg.cryptography` AES-GCM, key stored as one Keychain entry) —
+  see `DESIGN.md` for why PII needs real crypto on iOS while the token doesn't.
 - **Ktor + kotlinx.serialization**: `settings.ktor: enabled` and `settings.kotlin.serialization:
   json` in `shared/module.yaml` — both are Amper built-ins, already pinned to current stable
   (3.6.0 / 1.11.0), don't hand-pin versions. `provideHttpClient(engine, authTokenProvider)` in
@@ -156,6 +169,37 @@ for what that does and doesn't mean). Don't re-derive the setup below; extend it
   mechanism (Room is literally Amper's own documented example for it) — Ktor/serialization are
   Amper "built-in technologies," Room/kmpworkmanager/Koin are plain Maven coordinates.
 
+## Data model (domain, entities, DTOs, mappers)
+
+The real data model for all five screens — not wired into a repository or UI yet, extend it
+rather than re-deriving it:
+
+- **`domain`**: `Patient`/`Vitals`/`GeneralAssessment`/`OverweightAssessment`, `Gender`/
+  `HealthStatus` enums, `calculateBmi`/`classifyBmi`/`BmiStatus` (`Bmi.kt`). IDs are
+  `@JvmInline value class` (`PatientId`, `VitalsId`, `GeneralAssessmentId`,
+  `OverweightAssessmentId`). PII (`FirstName`, `LastName`, `DateOfBirth`, `Comments`) are also
+  value classes, each with `override fun toString() = redact()` delegating to the shared
+  `Redacted` interface (`Redacted.kt`) — don't try to move that `toString()` override onto the
+  interface itself, Kotlin forbids interfaces from overriding `Any`'s methods. `Patient.age(today:
+  LocalDate)` takes `today` as a required param, not a hidden clock default — keeps it a pure,
+  deterministic function.
+- **Entities** (`datasource.local`, common): `PatientEntity` (PK = business `patientId`, not an
+  autoincrement id — that's what makes "registered exactly once" a DB constraint, not just app
+  logic), `VitalsEntity`/`GeneralAssessmentEntity`/`OverweightAssessmentEntity` (autoincrement PK
+  + a `UNIQUE(patientId, visitDate)` index — that's what enforces "one submission per calendar
+  date" at the DB level). All four carry `serverId: Long?`/`synced: Boolean` for a future sync
+  worker that doesn't exist yet. PII columns hold ciphertext — see token/PII storage above.
+- **DTOs** (`datasource.remote.dto`, common): one file per endpoint group, matching
+  `docs/endpoints.md` field-for-field including its quirks (string-typed vitals numbers,
+  nullable `on_diet`/`on_drugs`). `ApiResponse<T>` is the shared envelope.
+- **Mappers** (`data.mapper`, common): `PatientMapper`/`GeneralAssessmentMapper`/
+  `OverweightAssessmentMapper` are classes taking a `FieldEncryptor` and are `suspend` (PII goes
+  through it on every conversion); `VitalsMapper` has no PII so it's plain extension functions.
+  Entity↔domain and domain→DTO/DTO→domain are separate conversions — DTOs always carry
+  *plaintext* PII (the API needs real values), only the entity side is encrypted. An entity `id`
+  of `0` means "not yet persisted" and maps to a `null` domain id, matching Room's
+  autoincrement convention.
+
 ## Backend API
 
 See [`docs/endpoints.md`](docs/endpoints.md) for the full reference (curl, payloads,
@@ -180,11 +224,15 @@ Key things to not re-derive from scratch:
 
 The assignment explicitly requires, and graders will check for:
 
-1. Unit tests for BMI calculation and BMI-status classification, including boundary values.
-2. Unit tests for form validation: mandatory fields, duplicate Patient ID, one submission per
-   date.
-3. One Room DAO test.
-4. One repository test using a faked or mocked API (not a live network call).
+1. ✅ Unit tests for BMI calculation and BMI-status classification, including boundary values —
+   `BmiTest.kt`.
+2. Unit tests for form validation: mandatory fields are UI-phase work; duplicate Patient ID and
+   one-submission-per-date are DB constraints, already covered at the DAO level
+   (`PatientDaoTest`/`VitalsDaoTest`/etc.) — a repository test translating the constraint
+   violation into a user-facing validation error is still owed once a repository exists.
+3. ✅ Room DAO tests — one per entity (`PatientDaoTest`, `VitalsDaoTest`,
+   `GeneralAssessmentDaoTest`, `OverweightAssessmentDaoTest`), more than the minimum asked for.
+4. Still owed: one repository test using a faked or mocked API — no repository exists yet.
 
 ## Deliverables this repo still owes
 

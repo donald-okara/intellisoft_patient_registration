@@ -34,25 +34,26 @@ private fun androidKeystoreSecretKey(keyAlias: String): SecretKey {
  * Encrypts/decrypts a single String with an AES-256/GCM key - in production, one kept in
  * AndroidKeyStore, whose key material never leaves the keystore. `encrypt`/`decrypt` both
  * operate on one Base64 string (IV prepended to ciphertext), so the result drops straight into a
- * single DataStore string preference.
+ * single DataStore string preference or Room column. Used for both the auth token and PII
+ * columns - callers pass a different `keyAlias` for each, isolating blast radius between them.
  *
  * The key lookup is injectable (`internal`) so tests can supply a plain in-memory AES key -
  * `AndroidKeyStore` is a real-device/emulator security provider with no Robolectric shadow, so
  * tests exercise the AES/GCM + IV logic here without going through it.
  */
-class TokenEncryptor internal constructor(
+class AesGcmEncryptor internal constructor(
     private val secretKeyProvider: () -> SecretKey,
-) {
+) : FieldEncryptor {
     constructor(keyAlias: String) : this({ androidKeystoreSecretKey(keyAlias) })
 
-    fun encrypt(plainText: String): String {
+    override suspend fun encrypt(plainText: String): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKeyProvider())
         val ciphertext = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
         return Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
     }
 
-    fun decrypt(value: String): String {
+    override suspend fun decrypt(value: String): String {
         val bytes = Base64.getDecoder().decode(value)
         val iv = bytes.copyOfRange(0, GCM_IV_LENGTH_BYTES)
         val ciphertext = bytes.copyOfRange(GCM_IV_LENGTH_BYTES, bytes.size)

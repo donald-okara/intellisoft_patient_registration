@@ -27,7 +27,7 @@ import platform.Security.kSecValueData
 
 /**
  * iOS has no AndroidKeyStore equivalent, and Keychain already encrypts its contents at rest -
- * so unlike Android (DataStore + manual AES/GCM via TokenEncryptor), this stores the token
+ * so unlike Android (DataStore + manual AES/GCM via AesGcmEncryptor), this stores the token
  * directly in Keychain rather than combining it with DataStore. No real device/Xcode is
  * available where this was written, so this is unverified by compilation or a real run - it
  * follows the standard SecItemAdd/SecItemCopyMatching/SecItemDelete pattern for a generic

@@ -1,0 +1,73 @@
+package ke.don.intellisoft_patient_registration.datasource.local
+
+import android.database.sqlite.SQLiteConstraintException
+import androidx.room.Room
+import androidx.sqlite.driver.AndroidSQLiteDriver
+import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.test.runTest
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
+
+@RunWith(RobolectricTestRunner::class)
+@Config(manifest = Config.NONE)
+class PatientDaoTest {
+    private fun newDatabase(): AppDatabase =
+        Room
+            .inMemoryDatabaseBuilder(
+                ApplicationProvider.getApplicationContext(),
+                AppDatabase::class.java,
+            ).setDriver(AndroidSQLiteDriver())
+            .build()
+
+    private fun patient(patientId: String = "P1") =
+        PatientEntity(
+            patientId = patientId,
+            serverId = null,
+            registrationDate = "2025-10-31",
+            firstName = "Jane",
+            lastName = "Doe",
+            dateOfBirth = "2000-01-01",
+            gender = "FEMALE",
+            synced = false,
+        )
+
+    @Test
+    fun insertedPatientIsReturnedById() =
+        runTest {
+            val db = newDatabase()
+
+            db.patientDao().insert(patient())
+            val found = db.patientDao().findByPatientId("P1")
+            db.close()
+
+            assertEquals("Jane", found?.firstName)
+        }
+
+    @Test
+    fun missingPatientIdReturnsNull() =
+        runTest {
+            val db = newDatabase()
+
+            val found = db.patientDao().findByPatientId("missing")
+            db.close()
+
+            assertNull(found)
+        }
+
+    @Test
+    fun duplicatePatientIdInsertFails() =
+        runTest {
+            val db = newDatabase()
+            db.patientDao().insert(patient())
+
+            assertFailsWith<SQLiteConstraintException> {
+                db.patientDao().insert(patient())
+            }
+            db.close()
+        }
+}
