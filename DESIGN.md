@@ -7,8 +7,9 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
 - **Package layout is by architectural layer**, not a flat `infra` catch-all: `domain` (business
   types, no framework dependency), `datasource.remote`/`datasource.local` (Ktor/Room/token &
   PII storage), `di` (Koin modules only — no logic), `work` (kmpworkmanager), `data.mapper`
-  (entity/DTO ↔ domain conversions). `data`'s repositories and `feature.<name>`'s per-screen
-  code are the only pieces not built yet.
+  (entity/DTO ↔ domain conversions). All four `data` repositories (Patient/Vitals/General/
+  Overweight) now exist; `feature.<name>`'s per-screen code (ViewModels, the five screens) is
+  the only piece not built yet.
 - **IDs and PII are `@JvmInline value class` wrappers, domain-only** — `PatientId`/`VitalsId`/etc.
   for type safety (can't pass a `VitalsId` where a `GeneralAssessmentId` is expected); `FirstName`/
   `LastName`/`DateOfBirth`/`Comments` additionally implement a shared `Redacted` interface so
@@ -70,7 +71,10 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   repository maps the generic `OfflineWriteResult` to a domain-named result
   (`RegisterPatientResult.DuplicatePatientId`, not a generic `Conflict`) so the reusable logic
   doesn't cost readability. Built once with `PatientRepository`, reused as-is by Vitals/General/
-  Overweight next.
+  Overweight. The one thing that doesn't carry over: only `PatientRepository` implements
+  `Syncable` — `patients/view` is the only endpoint shaped for pulling records back; `vital/add`
+  and `visits/add` have no corresponding list/view endpoint to pull from, so the other three
+  repositories are write-only (push + local-only reads).
 - **Pagination uses plain Room `LIMIT`/`OFFSET`, not AndroidX Paging.** `getPatients(page,
   pageSize)` and `getPatient(id)` return `Flow<List<Patient>>`/`Flow<Patient?>` - reactive, so a
   later write is reflected without a manual re-fetch - but real Paging 3 on this Room version
@@ -89,10 +93,10 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   3.6.0 client. Real sync workers will call the project's own `HttpClient` instead.
 - No `KmpWorkManager.initialize(...)` or `startKoin {}` call exists yet — nothing real to run in
   production until a repository/`Application` wiring phase adds one.
-- Repositories, app-layer validation (duplicate Patient ID / one-per-date are enforced as DB
-  constraints already, but turning a constraint violation into a user-facing message is
-  repository work), ViewModels, and the five screens don't exist yet — this phase is the data
-  model everything else builds on.
+- ViewModels and the five screens don't exist yet. All four repositories do now, including the
+  app-layer translation from a DB constraint violation to a domain-named result
+  (`DuplicatePatientId`/`DuplicateVisitDate`) - what's left is wiring that into UI-facing
+  validation messages.
 - **Outbox: push failures are classified, not retried blindly** (`data/sync/PushOutcome.kt`,
   `classifyPush`). `HttpClientProvider` sets `expectSuccess = true` so a non-2xx response throws
   Ktor's `ClientRequestException`/`ServerResponseException` instead of silently deserializing a
@@ -117,9 +121,9 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   deliberate scope cuts, not oversights. A fresh sign-in does not silently resurrect a stale push
   behind the user's back; they resubmit, same as for a validation failure. That in turn means a
   purged `ValidationFailed` row has **no path back** until a real edit flow exists — worth
-  stating plainly rather than treating "resubmit" as a complete answer. `RetryUnsyncedPatientsWorker`
-  (kmpworkmanager) retries `Retriable` rows only, on its own periodic interval - no retry-count
-  cap or backoff math, the interval itself is the backoff.
+  stating plainly rather than treating "resubmit" as a complete answer. Each repository has its
+  own `RetryUnsyncedXWorker` (kmpworkmanager) retrying only its own `Retriable` rows, on its own
+  periodic interval - no retry-count cap or backoff math, the interval itself is the backoff.
 
 ## Shared KMP module vs. platform-specific
 
