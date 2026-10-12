@@ -3,7 +3,6 @@ package ke.don.intellisoft_patient_registration.feature.patientregistration
 import ke.don.intellisoft_patient_registration.data.FakePatientRepository
 import ke.don.intellisoft_patient_registration.data.RegisterPatientResult
 import ke.don.intellisoft_patient_registration.domain.Gender
-import ke.don.intellisoft_patient_registration.domain.PatientId
 import ke.don.intellisoft_patient_registration.feature.common.SubmissionOutcome
 import ke.don.intellisoft_patient_registration.navigation.Navigator
 import ke.don.intellisoft_patient_registration.navigation.Route
@@ -22,6 +21,9 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PatientRegistrationViewModelTest {
@@ -37,8 +39,14 @@ class PatientRegistrationViewModelTest {
         Dispatchers.resetMain()
     }
 
+    /**
+     * There's no field value to assert against anymore - patientId is generated, not typed - so
+     * this instead proves it's a real UUID and that the exact same id both reaches the repository
+     * and drives the Vitals route, rather than two independently-generated values.
+     */
+    @OptIn(ExperimentalUuidApi::class)
     @Test
-    fun onSubmitWithAllFieldsValidRegistersPatientAndNavigatesToVitals() =
+    fun onSubmitWithAllFieldsValidRegistersPatientWithAGeneratedIdAndNavigatesToVitals() =
         runTest(testDispatcher) {
             val repository = FakePatientRepository()
             val navigator = Navigator(Route.PatientRegistration)
@@ -48,7 +56,6 @@ class PatientRegistrationViewModelTest {
                     navigator,
                     fixedClock(LocalDate(2026, 10, 12)),
                 )
-            viewModel.onIntent(PatientRegistrationIntent.PatientIdChanged("P1"))
             viewModel.onIntent(PatientRegistrationIntent.FirstNameChanged("Jane"))
             viewModel.onIntent(PatientRegistrationIntent.LastNameChanged("Mdoe"))
             viewModel.onIntent(PatientRegistrationIntent.DateOfBirthSelected(LocalDate(2000, 1, 1)))
@@ -57,9 +64,11 @@ class PatientRegistrationViewModelTest {
             viewModel.onIntent(PatientRegistrationIntent.Submit)
             testScheduler.advanceUntilIdle()
 
-            assertEquals(PatientId("P1"), repository.lastRegistered?.patientId)
+            val registeredId = repository.lastRegistered?.patientId
+            assertNotNull(registeredId)
+            Uuid.parse(registeredId.value)
             assertEquals(
-                listOf(Route.PatientRegistration, Route.Vitals(patientId = "P1")),
+                listOf(Route.PatientRegistration, Route.Vitals(patientId = registeredId.value)),
                 navigator.backStack.toList(),
             )
         }
@@ -98,7 +107,6 @@ class PatientRegistrationViewModelTest {
                     navigator,
                     fixedClock(LocalDate(2026, 10, 12)),
                 )
-            viewModel.onIntent(PatientRegistrationIntent.PatientIdChanged("P1"))
             viewModel.onIntent(PatientRegistrationIntent.FirstNameChanged("Jane"))
             viewModel.onIntent(PatientRegistrationIntent.LastNameChanged("Mdoe"))
             viewModel.onIntent(PatientRegistrationIntent.DateOfBirthSelected(LocalDate(2000, 1, 1)))

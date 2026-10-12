@@ -28,7 +28,6 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.toStdlibInstant
 
 data class PatientRegistrationUiState(
-    val patientId: FieldState = FieldState(validators = listOf(Validators.patientIdFormat())),
     val firstName: FieldState = FieldState(validators = listOf(Validators.required("First name is required"))),
     val lastName: FieldState = FieldState(validators = listOf(Validators.required("Last name is required"))),
     val dateOfBirth: SelectionState<LocalDate> = SelectionState(requiredMessage = "Date of birth is required"),
@@ -37,14 +36,10 @@ data class PatientRegistrationUiState(
     val isSubmitting: Boolean = false,
 ) {
     val canSubmit: Boolean
-        get() = patientId.isValid && firstName.isValid && lastName.isValid && dateOfBirth.isValid && gender.isValid
+        get() = firstName.isValid && lastName.isValid && dateOfBirth.isValid && gender.isValid
 }
 
 sealed interface PatientRegistrationIntent {
-    data class PatientIdChanged(
-        val value: String,
-    ) : PatientRegistrationIntent
-
     data class FirstNameChanged(
         val value: String,
     ) : PatientRegistrationIntent
@@ -74,12 +69,6 @@ class PatientRegistrationViewModel(
 
     fun onIntent(intent: PatientRegistrationIntent) {
         when (intent) {
-            is PatientRegistrationIntent.PatientIdChanged -> {
-                reduce {
-                    it.copy(patientId = it.patientId.onValueChanged(intent.value))
-                }
-            }
-
             is PatientRegistrationIntent.FirstNameChanged -> {
                 reduce {
                     it.copy(firstName = it.firstName.onValueChanged(intent.value))
@@ -118,7 +107,6 @@ class PatientRegistrationViewModel(
         val touchedState =
             _uiState.value.let {
                 it.copy(
-                    patientId = it.patientId.touch(),
                     firstName = it.firstName.touch(),
                     lastName = it.lastName.touch(),
                     dateOfBirth = it.dateOfBirth.touch(),
@@ -139,7 +127,7 @@ class PatientRegistrationViewModel(
                     .date
             val patient =
                 Patient(
-                    patientId = PatientId(touchedState.patientId.value.trim()),
+                    patientId = PatientId.generate(),
                     registrationDate = today,
                     firstName = FirstName(touchedState.firstName.value.trim()),
                     lastName = LastName(touchedState.lastName.value.trim()),
