@@ -3,8 +3,14 @@ package ke.don.intellisoft_patient_registration
 import android.app.Application
 import dev.brewkits.kmpworkmanager.KmpWorkManager
 import dev.brewkits.kmpworkmanager.KmpWorkManagerConfig
+import ke.don.intellisoft_patient_registration.data.GeneralAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.OverweightAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.PatientListingRepository
+import ke.don.intellisoft_patient_registration.data.PatientRepository
+import ke.don.intellisoft_patient_registration.data.VitalsRepository
 import ke.don.intellisoft_patient_registration.di.apiModule
 import ke.don.intellisoft_patient_registration.di.authModule
+import ke.don.intellisoft_patient_registration.di.clockModule
 import ke.don.intellisoft_patient_registration.di.cryptoModule
 import ke.don.intellisoft_patient_registration.di.databaseModule
 import ke.don.intellisoft_patient_registration.di.httpClientModule
@@ -18,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.context.startKoin
 import org.koin.core.parameter.parametersOf
+import org.koin.dsl.module
 
 /**
  * Starts Koin for real - startKoin{} never existed anywhere in this project before this, every
@@ -47,8 +54,21 @@ class PatientRegistrationApp : Application() {
                     databaseModule,
                     repositoryModule,
                     workManagerModule,
+                    clockModule,
                 )
             }.koin
+
+        koin.loadModules(
+            listOf(
+                module {
+                    single { koin.get<PatientRepository> { parametersOf(this@PatientRegistrationApp) } }
+                    single { koin.get<VitalsRepository> { parametersOf(this@PatientRegistrationApp) } }
+                    single { koin.get<GeneralAssessmentRepository> { parametersOf(this@PatientRegistrationApp) } }
+                    single { koin.get<OverweightAssessmentRepository> { parametersOf(this@PatientRegistrationApp) } }
+                    single { koin.get<PatientListingRepository> { parametersOf(this@PatientRegistrationApp) } }
+                },
+            ),
+        )
 
         val workerFactory = koin.get<AppWorkerFactory> { parametersOf(this) }
         KmpWorkManager.initialize(context = this, workerFactory = workerFactory, config = KmpWorkManagerConfig())
