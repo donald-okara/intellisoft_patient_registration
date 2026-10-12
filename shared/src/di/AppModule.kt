@@ -8,5 +8,5 @@ import org.koin.dsl.module
 val httpClientModule =
     module {
         single<HttpClientEngine> { platformHttpClientEngine() }
-        single { provideHttpClient(get()) }
+        single { provideHttpClient(get(), get()) }
     }

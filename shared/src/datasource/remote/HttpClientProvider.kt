@@ -18,7 +18,7 @@ const val API_BASE_URL = "https://patientvisitapis.intellisoftkenya.com/api/"
 
 expect fun platformHttpClientEngine(): HttpClientEngine
 
-/** Not wired to real auth storage yet - that lands with the repository layer next phase. */
+/** Backed by CachedAuthTokenProvider in production - see authModule/httpClientModule. */
 fun interface AuthTokenProvider {
     fun currentToken(): String?
 }
