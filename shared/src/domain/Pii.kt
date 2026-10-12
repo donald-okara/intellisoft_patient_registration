@@ -1,6 +1,7 @@
 package ke.don.intellisoft_patient_registration.domain
 
 import kotlinx.datetime.LocalDate
+import kotlin.jvm.JvmInline
 
 @JvmInline
 value class FirstName(
