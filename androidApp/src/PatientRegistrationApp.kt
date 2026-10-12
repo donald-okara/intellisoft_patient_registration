@@ -3,13 +3,21 @@ package ke.don.intellisoft_patient_registration
 import android.app.Application
 import dev.brewkits.kmpworkmanager.KmpWorkManager
 import dev.brewkits.kmpworkmanager.KmpWorkManagerConfig
+import ke.don.intellisoft_patient_registration.data.GeneralAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.OverweightAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.PatientListingRepository
+import ke.don.intellisoft_patient_registration.data.PatientRepository
+import ke.don.intellisoft_patient_registration.data.VitalsRepository
 import ke.don.intellisoft_patient_registration.di.apiModule
 import ke.don.intellisoft_patient_registration.di.authModule
+import ke.don.intellisoft_patient_registration.di.clockModule
 import ke.don.intellisoft_patient_registration.di.cryptoModule
 import ke.don.intellisoft_patient_registration.di.databaseModule
 import ke.don.intellisoft_patient_registration.di.httpClientModule
 import ke.don.intellisoft_patient_registration.di.mapperModule
+import ke.don.intellisoft_patient_registration.di.navigationModule
 import ke.don.intellisoft_patient_registration.di.repositoryModule
+import ke.don.intellisoft_patient_registration.di.viewModelModule
 import ke.don.intellisoft_patient_registration.di.workManagerModule
 import ke.don.intellisoft_patient_registration.work.AppWorkerFactory
 import ke.don.intellisoft_patient_registration.work.scheduleBackgroundSyncTasks
@@ -18,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.context.startKoin
 import org.koin.core.parameter.parametersOf
+import org.koin.dsl.module
 
 /**
  * Starts Koin for real - startKoin{} never existed anywhere in this project before this, every
@@ -47,8 +56,32 @@ class PatientRegistrationApp : Application() {
                     databaseModule,
                     repositoryModule,
                     workManagerModule,
+                    clockModule,
+                    navigationModule,
+                    viewModelModule,
                 )
             }.koin
+
+        // Resolve against the original repositoryModule bindings BEFORE loadModules below
+        // overrides them - otherwise each single{}'s own koin.get<X>(...) would resolve lazily,
+        // after the override, finding only itself and recursing infinitely (see task-2.3-report.md).
+        val patientRepository = koin.get<PatientRepository> { parametersOf(this) }
+        val vitalsRepository = koin.get<VitalsRepository> { parametersOf(this) }
+        val generalAssessmentRepository = koin.get<GeneralAssessmentRepository> { parametersOf(this) }
+        val overweightAssessmentRepository = koin.get<OverweightAssessmentRepository> { parametersOf(this) }
+        val patientListingRepository = koin.get<PatientListingRepository> { parametersOf(this) }
+
+        koin.loadModules(
+            listOf(
+                module {
+                    single { patientRepository }
+                    single { vitalsRepository }
+                    single { generalAssessmentRepository }
+                    single { overweightAssessmentRepository }
+                    single { patientListingRepository }
+                },
+            ),
+        )
 
         val workerFactory = koin.get<AppWorkerFactory> { parametersOf(this) }
         KmpWorkManager.initialize(context = this, workerFactory = workerFactory, config = KmpWorkManagerConfig())

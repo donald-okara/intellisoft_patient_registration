@@ -1,6 +1,7 @@
 package ke.don.intellisoft_patient_registration.datasource.local
 
 import android.database.sqlite.SQLiteConstraintException
+import androidx.paging.PagingSource
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
@@ -12,6 +13,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -122,4 +124,47 @@ class VitalsDaoTest {
 
             assertEquals(listOf("2025-10-31"), unsynced.map { it.visitDate })
         }
+
+    @Test
+    fun findByVisitDateReturnsOnlyRowsMatchingTheDate() =
+        runTest {
+            val db = newDatabase()
+            db.vitalsDao().insert(vitals(patientId = "P1", visitDate = "2026-10-12"))
+            db.vitalsDao().insert(vitals(patientId = "P2", visitDate = "2026-10-12"))
+            db.vitalsDao().insert(vitals(patientId = "P1", visitDate = "2026-10-11"))
+
+            val onDate = loadFirstPage(db, "2026-10-12", loadSize = 20)
+            db.close()
+
+            assertEquals(2, onDate.size)
+            assertEquals(listOf("P1", "P2"), onDate.map { it.patientId }.sorted())
+            assertEquals(setOf("2026-10-12"), onDate.map { it.visitDate }.toSet())
+        }
+
+    @Test
+    fun findByVisitDateRespectsLoadSize() =
+        runTest {
+            val db = newDatabase()
+            db.vitalsDao().insert(vitals(patientId = "P1", visitDate = "2026-10-12"))
+            db.vitalsDao().insert(vitals(patientId = "P2", visitDate = "2026-10-12"))
+
+            val onDate = loadFirstPage(db, "2026-10-12", loadSize = 1)
+            db.close()
+
+            assertEquals(1, onDate.size)
+        }
+
+    private suspend fun loadFirstPage(
+        db: AppDatabase,
+        visitDate: String,
+        loadSize: Int,
+    ): List<VitalsEntity> {
+        val pagingSource = db.vitalsDao().findByVisitDate(visitDate)
+        val result =
+            pagingSource.load(
+                PagingSource.LoadParams.Refresh(key = null, loadSize = loadSize, placeholdersEnabled = false),
+            )
+        val page = assertIs<PagingSource.LoadResult.Page<Int, VitalsEntity>>(result)
+        return page.data
+    }
 }

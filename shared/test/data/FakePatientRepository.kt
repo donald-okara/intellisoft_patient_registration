@@ -7,14 +7,25 @@ import kotlinx.coroutines.flow.flowOf
 
 class FakePatientRepository(
     private val syncResult: Boolean = true,
+    private val patients: Map<PatientId, Patient> = emptyMap(),
+    private var resultToReturn: RegisterPatientResult = RegisterPatientResult.Success(synced = true),
 ) : PatientRepository {
     var retryUnsyncedPushesCallCount = 0
         private set
 
-    override suspend fun registerPatient(patient: Patient): RegisterPatientResult =
-        error("not needed for this fake's tests")
+    var lastRegistered: Patient? = null
+        private set
 
-    override fun getPatient(id: PatientId): Flow<Patient?> = flowOf(null)
+    fun stubResult(result: RegisterPatientResult) {
+        resultToReturn = result
+    }
+
+    override suspend fun registerPatient(patient: Patient): RegisterPatientResult {
+        lastRegistered = patient
+        return resultToReturn
+    }
+
+    override fun getPatient(id: PatientId): Flow<Patient?> = flowOf(patients[id])
 
     override fun getPatients(
         page: Int,

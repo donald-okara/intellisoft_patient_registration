@@ -12,12 +12,18 @@ dependencies:
   - $compose.hotReload.runtimeApi
   - $libs.androidx.lifecycle.viewmodel.compose
   - $libs.androidx.lifecycle.runtime.compose
+  - $libs.androidx.navigation3.ui
+  - $libs.androidx.lifecycle.viewmodel.navigation3
+  - $libs.koin.compose.viewmodel
   - io.ktor:ktor-client-core:3.6.0
   - io.ktor:ktor-client-content-negotiation:3.6.0
   - io.ktor:ktor-client-logging:3.6.0
   - io.ktor:ktor-serialization-kotlinx-json:3.6.0
   - io.insert-koin:koin-core:4.2.2
   - androidx.room:room-runtime:2.8.5
+  - androidx.room:room-paging:2.8.5
+  - androidx.paging:paging-common:3.5.2
+  - androidx.paging:paging-compose:3.5.2
   - androidx.datastore:datastore-preferences-core:1.3.0-alpha11
   - org.jetbrains.kotlinx:kotlinx-datetime:0.8.0
 
@@ -37,6 +43,7 @@ test-dependencies:
   - io.ktor:ktor-client-mock:3.6.0
   - org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0
   - io.insert-koin:koin-test:4.2.2
+  - androidx.paging:paging-testing:3.5.2
 
 test-dependencies@android:
   - org.robolectric:robolectric:4.17

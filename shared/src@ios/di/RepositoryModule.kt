@@ -2,10 +2,12 @@ package ke.don.intellisoft_patient_registration.di
 
 import ke.don.intellisoft_patient_registration.data.DefaultGeneralAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.DefaultOverweightAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.DefaultPatientListingRepository
 import ke.don.intellisoft_patient_registration.data.DefaultPatientRepository
 import ke.don.intellisoft_patient_registration.data.DefaultVitalsRepository
 import ke.don.intellisoft_patient_registration.data.GeneralAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.OverweightAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.PatientListingRepository
 import ke.don.intellisoft_patient_registration.data.PatientRepository
 import ke.don.intellisoft_patient_registration.data.VitalsRepository
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
@@ -38,6 +40,12 @@ val repositoryModule =
                 overweightAssessmentDao = get<AppDatabase>().overweightAssessmentDao(),
                 visitApi = get(),
                 overweightAssessmentMapper = get(),
+            )
+        }
+        single<PatientListingRepository> {
+            DefaultPatientListingRepository(
+                vitalsDao = get<AppDatabase>().vitalsDao(),
+                patientRepository = get(),
             )
         }
     }
