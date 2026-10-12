@@ -12,6 +12,9 @@ dependencies:
   - $compose.hotReload.runtimeApi
   - $libs.androidx.lifecycle.viewmodel.compose
   - $libs.androidx.lifecycle.runtime.compose
+  - $libs.androidx.navigation3.ui
+  - $libs.androidx.lifecycle.viewmodel.navigation3
+  - $libs.koin.compose.viewmodel
   - io.ktor:ktor-client-core:3.6.0
   - io.ktor:ktor-client-content-negotiation:3.6.0
   - io.ktor:ktor-client-logging:3.6.0
