@@ -6,26 +6,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,8 +34,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ke.don.intellisoft_patient_registration.domain.Gender
 import ke.don.intellisoft_patient_registration.feature.common.FieldState
+import ke.don.intellisoft_patient_registration.feature.common.FieldStateOutlinedTextField
+import ke.don.intellisoft_patient_registration.feature.common.FormScreenColumn
 import ke.don.intellisoft_patient_registration.feature.common.SelectionState
-import ke.don.intellisoft_patient_registration.feature.common.SubmissionOutcome
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -64,98 +58,46 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
 /**
  * Component composable: stateless UI layout that receives shared UiState and intent callbacks.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientRegistrationComponent(
     uiState: PatientRegistrationUiState,
     onIntent: (PatientRegistrationIntent) -> Unit,
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Patient Registration") },
-            )
-        },
-    ) { innerPadding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+    FormScreenColumn(
+        title = "Patient Registration",
+        outcome = uiState.submissionOutcome,
+    ) {
+        PatientIdSegment(
+            state = uiState.patientId,
+            onValueChange = { onIntent(PatientRegistrationIntent.PatientIdChanged(it)) },
+        )
+
+        FirstNameSegment(
+            state = uiState.firstName,
+            onValueChange = { onIntent(PatientRegistrationIntent.FirstNameChanged(it)) },
+        )
+
+        LastNameSegment(
+            state = uiState.lastName,
+            onValueChange = { onIntent(PatientRegistrationIntent.LastNameChanged(it)) },
+        )
+
+        DateOfBirthSegment(
+            state = uiState.dateOfBirth,
+            onDateSelected = { onIntent(PatientRegistrationIntent.DateOfBirthSelected(it)) },
+        )
+
+        GenderSegment(
+            state = uiState.gender,
+            onGenderSelected = { onIntent(PatientRegistrationIntent.GenderSelected(it)) },
+        )
+
+        Button(
+            onClick = { onIntent(PatientRegistrationIntent.Submit) },
+            enabled = !uiState.isSubmitting,
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) {
-            uiState.submissionOutcome?.let { outcome ->
-                when (outcome) {
-                    is SubmissionOutcome.Duplicate -> {
-                        Card(
-                            colors =
-                                CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                ),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                text = outcome.message,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(16.dp),
-                            )
-                        }
-                    }
-
-                    is SubmissionOutcome.Failed -> {
-                        Card(
-                            colors =
-                                CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                ),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                text = outcome.cause.message ?: "An unexpected error occurred.",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(16.dp),
-                            )
-                        }
-                    }
-
-                    else -> {}
-                }
-            }
-
-            PatientIdSegment(
-                state = uiState.patientId,
-                onValueChange = { onIntent(PatientRegistrationIntent.PatientIdChanged(it)) },
-            )
-
-            FirstNameSegment(
-                state = uiState.firstName,
-                onValueChange = { onIntent(PatientRegistrationIntent.FirstNameChanged(it)) },
-            )
-
-            LastNameSegment(
-                state = uiState.lastName,
-                onValueChange = { onIntent(PatientRegistrationIntent.LastNameChanged(it)) },
-            )
-
-            DateOfBirthSegment(
-                state = uiState.dateOfBirth,
-                onDateSelected = { onIntent(PatientRegistrationIntent.DateOfBirthSelected(it)) },
-            )
-
-            GenderSegment(
-                state = uiState.gender,
-                onGenderSelected = { onIntent(PatientRegistrationIntent.GenderSelected(it)) },
-            )
-
-            Button(
-                onClick = { onIntent(PatientRegistrationIntent.Submit) },
-                enabled = !uiState.isSubmitting,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            ) {
-                Text(if (uiState.isSubmitting) "Registering..." else "Register Patient")
-            }
+            Text(if (uiState.isSubmitting) "Registering..." else "Register Patient")
         }
     }
 }
@@ -166,15 +108,11 @@ fun PatientIdSegment(
     state: FieldState,
     onValueChange: (String) -> Unit,
 ) {
-    OutlinedTextField(
-        value = state.value,
+    FieldStateOutlinedTextField(
+        state = state,
         onValueChange = onValueChange,
-        label = { Text("Patient ID") },
-        isError = state.errorMessage != null,
-        supportingText = state.errorMessage?.let { { Text(it) } },
-        singleLine = true,
+        label = "Patient ID",
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-        modifier = Modifier.fillMaxWidth(),
     )
 }
 
@@ -184,15 +122,11 @@ fun FirstNameSegment(
     state: FieldState,
     onValueChange: (String) -> Unit,
 ) {
-    OutlinedTextField(
-        value = state.value,
+    FieldStateOutlinedTextField(
+        state = state,
         onValueChange = onValueChange,
-        label = { Text("First Name") },
-        isError = state.errorMessage != null,
-        supportingText = state.errorMessage?.let { { Text(it) } },
-        singleLine = true,
+        label = "First Name",
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-        modifier = Modifier.fillMaxWidth(),
     )
 }
 
@@ -202,15 +136,11 @@ fun LastNameSegment(
     state: FieldState,
     onValueChange: (String) -> Unit,
 ) {
-    OutlinedTextField(
-        value = state.value,
+    FieldStateOutlinedTextField(
+        state = state,
         onValueChange = onValueChange,
-        label = { Text("Last Name") },
-        isError = state.errorMessage != null,
-        supportingText = state.errorMessage?.let { { Text(it) } },
-        singleLine = true,
+        label = "Last Name",
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        modifier = Modifier.fillMaxWidth(),
     )
 }
 
