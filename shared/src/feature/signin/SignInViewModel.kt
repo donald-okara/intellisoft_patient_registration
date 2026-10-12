@@ -49,11 +49,11 @@ class SignInViewModel(
     fun onIntent(intent: SignInIntent) {
         when (intent) {
             is SignInIntent.EmailChanged -> {
-                reduce { it.copy(email = it.email.apply { onValueChanged(intent.value) }) }
+                reduce { it.copy(email = it.email.onValueChanged(intent.value)) }
             }
 
             is SignInIntent.PasswordChanged -> {
-                reduce { it.copy(password = it.password.apply { onValueChanged(intent.value) }) }
+                reduce { it.copy(password = it.password.onValueChanged(intent.value)) }
             }
 
             is SignInIntent.Submit -> {
@@ -71,16 +71,17 @@ class SignInViewModel(
     }
 
     private fun handleSubmit() {
-        val currentState = _uiState.value
-        currentState.email.touch()
-        currentState.password.touch()
-        reduce { it.copy() }
+        val touchedState =
+            _uiState.value.let {
+                it.copy(email = it.email.touch(), password = it.password.touch())
+            }
+        reduce { touchedState }
 
-        if (!currentState.canSubmit) return
+        if (!touchedState.canSubmit) return
 
         viewModelScope.launch {
             reduce { it.copy(isSubmitting = true) }
-            val result = authRepository.signIn(currentState.email.value.trim(), currentState.password.value)
+            val result = authRepository.signIn(touchedState.email.value.trim(), touchedState.password.value)
             when (result) {
                 is SignInResult.Authenticated -> {
                     reduce { it.copy(isSubmitting = false) }

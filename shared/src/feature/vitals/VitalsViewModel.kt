@@ -74,13 +74,13 @@ class VitalsViewModel(
         when (intent) {
             is VitalsIntent.HeightChanged -> {
                 reduce {
-                    it.copy(heightCm = it.heightCm.apply { onValueChanged(intent.value) })
+                    it.copy(heightCm = it.heightCm.onValueChanged(intent.value))
                 }
             }
 
             is VitalsIntent.WeightChanged -> {
                 reduce {
-                    it.copy(weightKg = it.weightKg.apply { onValueChanged(intent.value) })
+                    it.copy(weightKg = it.weightKg.onValueChanged(intent.value))
                 }
             }
 
@@ -95,16 +95,16 @@ class VitalsViewModel(
     }
 
     private fun handleSubmit() {
-        val currentState = _uiState.value
-        currentState.heightCm.touch()
-        currentState.weightKg.touch()
+        val touchedState =
+            _uiState.value.let {
+                it.copy(heightCm = it.heightCm.touch(), weightKg = it.weightKg.touch())
+            }
+        reduce { touchedState }
 
-        reduce { it.copy() }
+        if (!touchedState.canSubmit) return
 
-        if (!currentState.canSubmit) return
-
-        val height = currentState.heightCm.value.toDoubleOrNull()
-        val weight = currentState.weightKg.value.toDoubleOrNull()
+        val height = touchedState.heightCm.value.toDoubleOrNull()
+        val weight = touchedState.weightKg.value.toDoubleOrNull()
         if (height == null || weight == null || height <= 0 || weight <= 0) return
 
         viewModelScope.launch {

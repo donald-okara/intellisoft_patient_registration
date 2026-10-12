@@ -13,24 +13,21 @@ class FieldStateTest {
 
     @Test
     fun touchedInvalidFieldExposesTheFirstFailingReason() {
-        val field = FieldState(validators = listOf(Validators.required("Required")))
-        field.onValueChanged("")
+        val field = FieldState(validators = listOf(Validators.required("Required"))).onValueChanged("")
         assertEquals("Required", field.errorMessage)
         assertEquals(false, field.isValid)
     }
 
     @Test
     fun touchedValidFieldHasNoErrorMessage() {
-        val field = FieldState(validators = listOf(Validators.required()))
-        field.onValueChanged("Jane")
+        val field = FieldState(validators = listOf(Validators.required())).onValueChanged("Jane")
         assertEquals(null, field.errorMessage)
         assertEquals(true, field.isValid)
     }
 
     @Test
     fun touchWithoutChangingValueStillRevealsExistingErrors() {
-        val field = FieldState(validators = listOf(Validators.required("Required")))
-        field.touch()
+        val field = FieldState(validators = listOf(Validators.required("Required"))).touch()
         assertEquals("Required", field.errorMessage)
     }
 }

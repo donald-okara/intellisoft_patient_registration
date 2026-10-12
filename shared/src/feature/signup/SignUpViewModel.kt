@@ -59,19 +59,19 @@ class SignUpViewModel(
     fun onIntent(intent: SignUpIntent) {
         when (intent) {
             is SignUpIntent.EmailChanged -> {
-                reduce { it.copy(email = it.email.apply { onValueChanged(intent.value) }) }
+                reduce { it.copy(email = it.email.onValueChanged(intent.value)) }
             }
 
             is SignUpIntent.FirstnameChanged -> {
-                reduce { it.copy(firstname = it.firstname.apply { onValueChanged(intent.value) }) }
+                reduce { it.copy(firstname = it.firstname.onValueChanged(intent.value)) }
             }
 
             is SignUpIntent.LastnameChanged -> {
-                reduce { it.copy(lastname = it.lastname.apply { onValueChanged(intent.value) }) }
+                reduce { it.copy(lastname = it.lastname.onValueChanged(intent.value)) }
             }
 
             is SignUpIntent.PasswordChanged -> {
-                reduce { it.copy(password = it.password.apply { onValueChanged(intent.value) }) }
+                reduce { it.copy(password = it.password.onValueChanged(intent.value)) }
             }
 
             is SignUpIntent.Submit -> {
@@ -89,23 +89,27 @@ class SignUpViewModel(
     }
 
     private fun handleSubmit() {
-        val currentState = _uiState.value
-        currentState.email.touch()
-        currentState.firstname.touch()
-        currentState.lastname.touch()
-        currentState.password.touch()
-        reduce { it.copy() }
+        val touchedState =
+            _uiState.value.let {
+                it.copy(
+                    email = it.email.touch(),
+                    firstname = it.firstname.touch(),
+                    lastname = it.lastname.touch(),
+                    password = it.password.touch(),
+                )
+            }
+        reduce { touchedState }
 
-        if (!currentState.canSubmit) return
+        if (!touchedState.canSubmit) return
 
         viewModelScope.launch {
             reduce { it.copy(isSubmitting = true) }
             val result =
                 authRepository.signUp(
-                    email = currentState.email.value.trim(),
-                    firstname = currentState.firstname.value.trim(),
-                    lastname = currentState.lastname.value.trim(),
-                    password = currentState.password.value,
+                    email = touchedState.email.value.trim(),
+                    firstname = touchedState.firstname.value.trim(),
+                    lastname = touchedState.lastname.value.trim(),
+                    password = touchedState.password.value,
                 )
             when (result) {
                 is SignUpResult.AccountCreated -> {

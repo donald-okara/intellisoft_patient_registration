@@ -76,31 +76,31 @@ class PatientRegistrationViewModel(
         when (intent) {
             is PatientRegistrationIntent.PatientIdChanged -> {
                 reduce {
-                    it.copy(patientId = it.patientId.apply { onValueChanged(intent.value) })
+                    it.copy(patientId = it.patientId.onValueChanged(intent.value))
                 }
             }
 
             is PatientRegistrationIntent.FirstNameChanged -> {
                 reduce {
-                    it.copy(firstName = it.firstName.apply { onValueChanged(intent.value) })
+                    it.copy(firstName = it.firstName.onValueChanged(intent.value))
                 }
             }
 
             is PatientRegistrationIntent.LastNameChanged -> {
                 reduce {
-                    it.copy(lastName = it.lastName.apply { onValueChanged(intent.value) })
+                    it.copy(lastName = it.lastName.onValueChanged(intent.value))
                 }
             }
 
             is PatientRegistrationIntent.DateOfBirthSelected -> {
                 reduce {
-                    it.copy(dateOfBirth = it.dateOfBirth.apply { select(intent.value) })
+                    it.copy(dateOfBirth = it.dateOfBirth.select(intent.value))
                 }
             }
 
             is PatientRegistrationIntent.GenderSelected -> {
                 reduce {
-                    it.copy(gender = it.gender.apply { select(intent.value) })
+                    it.copy(gender = it.gender.select(intent.value))
                 }
             }
 
@@ -115,16 +115,19 @@ class PatientRegistrationViewModel(
     }
 
     private fun handleSubmit() {
-        val currentState = _uiState.value
-        currentState.patientId.touch()
-        currentState.firstName.touch()
-        currentState.lastName.touch()
-        currentState.dateOfBirth.touch()
-        currentState.gender.touch()
+        val touchedState =
+            _uiState.value.let {
+                it.copy(
+                    patientId = it.patientId.touch(),
+                    firstName = it.firstName.touch(),
+                    lastName = it.lastName.touch(),
+                    dateOfBirth = it.dateOfBirth.touch(),
+                    gender = it.gender.touch(),
+                )
+            }
+        reduce { touchedState }
 
-        reduce { it.copy() }
-
-        if (!currentState.canSubmit) return
+        if (!touchedState.canSubmit) return
 
         viewModelScope.launch {
             reduce { it.copy(isSubmitting = true) }
@@ -136,12 +139,12 @@ class PatientRegistrationViewModel(
                     .date
             val patient =
                 Patient(
-                    patientId = PatientId(currentState.patientId.value.trim()),
+                    patientId = PatientId(touchedState.patientId.value.trim()),
                     registrationDate = today,
-                    firstName = FirstName(currentState.firstName.value.trim()),
-                    lastName = LastName(currentState.lastName.value.trim()),
-                    dateOfBirth = DateOfBirth(currentState.dateOfBirth.selected!!),
-                    gender = currentState.gender.selected!!,
+                    firstName = FirstName(touchedState.firstName.value.trim()),
+                    lastName = LastName(touchedState.lastName.value.trim()),
+                    dateOfBirth = DateOfBirth(touchedState.dateOfBirth.selected!!),
+                    gender = touchedState.gender.selected!!,
                 )
             val result = patientRepository.registerPatient(patient)
             val outcome = result.toSubmissionOutcome()

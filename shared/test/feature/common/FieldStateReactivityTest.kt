@@ -1,25 +1,41 @@
 package ke.don.intellisoft_patient_registration.feature.common
 
 import kotlin.test.Test
-import kotlin.test.assertNotEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 
 data class ScratchUiState(
     val email: FieldState = FieldState(),
 )
 
 /**
- * Regression test for a real bug: mutating FieldState in place and reusing the same reference
- * in `copy()` made the "old" and "new" wrapping UiState structurally equal, which made
- * StateFlow conflate the update away - Compose's collectAsState() never saw a new emission, so
- * text fields appeared frozen even though the value had changed.
+ * Regression test: a form field's value/touched mutators must return a *new* FieldState rather
+ * than mutating in place. Mutating in place previously made the "old" and "new" wrapping UiState
+ * carry the same FieldState reference, which broke two things at once: StateFlow conflated the
+ * structurally-equal consecutive states (so collectAsState() never emitted, and the field looked
+ * frozen), and forcing FieldState to report itself as "always changed" made Compose tear down
+ * and rebuild the TextField every keystroke instead (so a typed character flashed and
+ * immediately reverted, because the IME connection/focus was lost on every recomposition).
  */
 class FieldStateReactivityTest {
     @Test
-    fun copyWithAMutatedFieldStateIsNeverEqualToTheOriginal() {
+    fun onValueChangedReturnsANewInstanceDistinctFromTheOriginal() {
         val original = ScratchUiState()
 
-        val mutatedCopy = original.copy(email = original.email.apply { onValueChanged("a") })
+        val changed = original.copy(email = original.email.onValueChanged("a"))
 
-        assertNotEquals(original, mutatedCopy)
+        assertNotSame(original.email, changed.email)
+        assertEquals("a", changed.email.value)
+        assertEquals("", original.email.value)
+    }
+
+    @Test
+    fun touchOnAnAlreadyTouchedFieldReturnsTheSameInstance() {
+        val touchedOnce = FieldState().touch()
+
+        val touchedTwice = touchedOnce.touch()
+
+        assertSame(touchedOnce, touchedTwice)
     }
 }

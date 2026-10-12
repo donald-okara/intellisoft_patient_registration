@@ -8,21 +8,23 @@ package ke.don.intellisoft_patient_registration.feature.common
  * ([onValueChanged]) or by a Submit handler force-touching every field — so a freshly opened
  * form doesn't show every mandatory field as an error before the user has interacted with it.
  *
- * Backed by plain `var` properties rather than Compose snapshot state: this class has no
- * Compose dependency and is fully testable as plain Kotlin. A screen that reads `field.value`
- * directly inside a composable would need `mutableStateOf` to recompose automatically on
- * change — that's a concern for the ViewModel/screen wiring that consumes this, not for this
- * class's own correctness.
+ * Immutable by design: [onValueChanged]/[touch] return a *new* FieldState rather than mutating
+ * in place. A ViewModel reducer does `uiState.copy(email = uiState.email.onValueChanged(x))`,
+ * never `.apply { onValueChanged(x) }` — mutating in place would make the old and new UiState
+ * carry the same FieldState reference, which breaks two things at once: StateFlow conflates
+ * structurally-equal consecutive values (so collectAsState() never emits, and the field looks
+ * frozen), and even if equals() were forced to always report "changed", Compose would then tear
+ * down and rebuild the TextField on every keystroke instead of updating it in place (losing
+ * focus/the IME connection, so a typed character flashes and immediately reverts to empty).
  */
 class FieldState(
     initialValue: String = "",
+    initialTouched: Boolean = false,
     private val validators: List<FieldValidator> = emptyList(),
 ) {
-    var value: String = initialValue
-        private set
+    val value: String = initialValue
 
-    var touched: Boolean = false
-        private set
+    val touched: Boolean = initialTouched
 
     /** First failing validator's [Decision], evaluated in order; [Decision.Valid] if none fail. */
     val decision: Decision
@@ -35,24 +37,8 @@ class FieldState(
     val isValid: Boolean
         get() = decision is Decision.Valid
 
-    fun onValueChanged(newValue: String) {
-        value = newValue
-        touched = true
-    }
+    fun onValueChanged(newValue: String): FieldState = FieldState(newValue, initialTouched = true, validators)
 
-    fun touch() {
-        touched = true
-    }
-
-    /**
-     * Deliberately never equal, even to itself - [onValueChanged]/[touch] mutate this instance
-     * in place, so a ViewModel's `uiState.copy(email = uiState.email.apply { onValueChanged(x) })`
-     * reduction always carries the *same* FieldState reference in both the old and new UiState.
-     * Without this override, that makes the two UiState instances structurally equal, and
-     * StateFlow conflates/skips equal consecutive values - so Compose's collectAsState() never
-     * sees a new emission and the field looks frozen, even though the value did change.
-     */
-    override fun equals(other: Any?): Boolean = false
-
-    override fun hashCode(): Int = super.hashCode()
+    /** No-op (returns this unchanged) when already touched, so an already-revealed field doesn't force a new instance. */
+    fun touch(): FieldState = if (touched) this else FieldState(value, initialTouched = true, validators)
 }

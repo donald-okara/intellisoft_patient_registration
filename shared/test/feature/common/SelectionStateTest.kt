@@ -14,16 +14,14 @@ class SelectionStateTest {
 
     @Test
     fun touchedUnselectedFieldExposesTheRequiredReason() {
-        val field = SelectionState<Gender>(requiredMessage = "Required")
-        field.touch()
+        val field = SelectionState<Gender>(requiredMessage = "Required").touch()
         assertEquals("Required", field.errorMessage)
         assertEquals(false, field.isValid)
     }
 
     @Test
     fun touchedSelectedFieldHasNoErrorMessage() {
-        val field = SelectionState<Gender>()
-        field.select(Gender.FEMALE)
+        val field = SelectionState<Gender>().select(Gender.FEMALE)
         assertEquals(null, field.errorMessage)
         assertEquals(true, field.isValid)
     }

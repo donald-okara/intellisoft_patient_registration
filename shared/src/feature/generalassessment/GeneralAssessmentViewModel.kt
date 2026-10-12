@@ -69,22 +69,19 @@ class GeneralAssessmentViewModel(
         when (intent) {
             is GeneralAssessmentIntent.HealthStatusSelected -> {
                 reduce {
-                    it.copy(generalHealth = it.generalHealth.apply { select(intent.value) })
+                    it.copy(generalHealth = it.generalHealth.select(intent.value))
                 }
             }
 
             is GeneralAssessmentIntent.EverDietedSelected -> {
                 reduce {
-                    it.copy(
-                        everDietedToLoseWeight =
-                            it.everDietedToLoseWeight.apply { select(intent.value) },
-                    )
+                    it.copy(everDietedToLoseWeight = it.everDietedToLoseWeight.select(intent.value))
                 }
             }
 
             is GeneralAssessmentIntent.CommentsChanged -> {
                 reduce {
-                    it.copy(comments = it.comments.apply { onValueChanged(intent.value) })
+                    it.copy(comments = it.comments.onValueChanged(intent.value))
                 }
             }
 
@@ -99,14 +96,17 @@ class GeneralAssessmentViewModel(
     }
 
     private fun handleSubmit() {
-        val currentState = _uiState.value
-        currentState.generalHealth.touch()
-        currentState.everDietedToLoseWeight.touch()
-        currentState.comments.touch()
+        val touchedState =
+            _uiState.value.let {
+                it.copy(
+                    generalHealth = it.generalHealth.touch(),
+                    everDietedToLoseWeight = it.everDietedToLoseWeight.touch(),
+                    comments = it.comments.touch(),
+                )
+            }
+        reduce { touchedState }
 
-        reduce { it.copy() }
-
-        if (!currentState.canSubmit) return
+        if (!touchedState.canSubmit) return
 
         viewModelScope.launch {
             reduce { it.copy(isSubmitting = true) }
@@ -123,9 +123,9 @@ class GeneralAssessmentViewModel(
                     patientId = PatientId(patientId),
                     vitalsId = VitalsId(vitalsId),
                     visitDate = today,
-                    generalHealth = currentState.generalHealth.selected!!,
-                    everDietedToLoseWeight = currentState.everDietedToLoseWeight.selected!!,
-                    comments = Comments(currentState.comments.value.trim()),
+                    generalHealth = touchedState.generalHealth.selected!!,
+                    everDietedToLoseWeight = touchedState.everDietedToLoseWeight.selected!!,
+                    comments = Comments(touchedState.comments.value.trim()),
                 )
 
             val result = generalAssessmentRepository.submitGeneralAssessment(assessment)
