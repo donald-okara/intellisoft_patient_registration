@@ -383,11 +383,17 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
 - Modify: `shared/src/navigation/AppNavHost.kt`
 - Modify: `shared/src/di/ViewModelModule.kt`
 
-- [ ] **Step 1: Implement `SplashScreen`** - a single centered `CircularProgressIndicator`
-  inside `AppScreenColumn` (or a bare `Box`, implementer's call - there's no form content and
-  nothing to preview meaningfully beyond the one visual state).
-- [ ] **Step 2: Add `entry<Route.Splash> { SplashScreen() }`** to `AppNavHost` and
-  `viewModelOf(::SplashViewModel)` to `viewModelModule`.
+- [ ] **Step 1: Implement `SplashScreen(viewModel: SplashViewModel)`** - a single centered
+  `CircularProgressIndicator` inside `AppScreenColumn` (or a bare `Box`, implementer's call -
+  there's no form content and nothing to preview meaningfully beyond the one visual state). The
+  `viewModel` parameter is required even though the screen reads no state from it - injecting it
+  via Koin inside the Compose tree is what constructs `SplashViewModel` and runs its `init{}`
+  (the hydrate-then-navigate logic) in the first place; a parameterless `SplashScreen()` would
+  never construct the ViewModel at all.
+- [ ] **Step 2: Add `entry<Route.Splash> { SplashScreen(viewModel = koinViewModel {
+  parametersOf(navigator) }) }`** to `AppNavHost` (matching every other entry's
+  `parametersOf(navigator, ...)` call style) and `viewModelOf(::SplashViewModel)` to
+  `viewModelModule`.
 - [ ] **Step 3:** No new test (Compose wiring, same rationale as every other screen's own
   wiring task in this project). Run `./kotlin build -m androidApp`.
 - [ ] **Step 4: Commit.**
@@ -480,8 +486,10 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   password field), a submit button, a "Don't have an account? Sign up" text button calling
   `onSignUpClicked`. Add `@Preview` composables per the standing instruction from the prior
   session (valid state, missing-field state, invalid-credentials state).
-- [ ] **Step 2: Add `entry<Route.SignIn> { SignInScreen(viewModel = koinViewModel()) }`** to
-  `AppNavHost` and `viewModelOf(::SignInViewModel)` to `viewModelModule`.
+- [ ] **Step 2: Add `entry<Route.SignIn> { SignInScreen(viewModel = koinViewModel {
+  parametersOf(navigator) }) }`** to `AppNavHost` (matching every other entry's
+  `parametersOf(navigator, ...)` call style) and `viewModelOf(::SignInViewModel)` to
+  `viewModelModule`.
 - [ ] **Step 3:** No new test (Compose wiring). Run `./kotlin build -m androidApp`.
 - [ ] **Step 4: Commit.**
 
@@ -526,8 +534,10 @@ Mirrors Phase 6 exactly, swapping in `signUp`/`SignUpResult`/`Route.SignUp`.
 - Modify: `shared/src/di/ViewModelModule.kt`
 
 - [ ] Implement the four-field form (same reused segments as Task 6.2) plus a "Already have an
-  account? Sign in" text button calling `onSignInClicked`, with `@Preview`s. Wire the
-  `entry<Route.SignUp>` and `viewModelOf(::SignUpViewModel)`.
+  account? Sign in" text button calling `onSignInClicked`, with `@Preview`s. Add
+  `entry<Route.SignUp> { SignUpScreen(viewModel = koinViewModel { parametersOf(navigator) }) }`
+  to `AppNavHost` (same `parametersOf(navigator, ...)` style as every other entry) and
+  `viewModelOf(::SignUpViewModel)` to `viewModelModule`.
 - [ ] Commit.
 
 ---
