@@ -53,35 +53,23 @@ import kotlinx.datetime.toLocalDateTime
  */
 @Composable
 fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
-    val submissionOutcome by viewModel.submissionOutcome.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     PatientRegistrationComponent(
-        patientId = viewModel.patientId,
-        firstName = viewModel.firstName,
-        lastName = viewModel.lastName,
-        dateOfBirth = viewModel.dateOfBirth,
-        gender = viewModel.gender,
-        submissionOutcome = submissionOutcome,
-        onSubmit = viewModel::onSubmit,
+        uiState = uiState,
+        onIntent = viewModel::onIntent,
     )
 }
 
 /**
- * Component composable: stateless UI layout that receives state and callbacks.
+ * Component composable: stateless UI layout that receives shared UiState and intent callbacks.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientRegistrationComponent(
-    patientId: FieldState,
-    firstName: FieldState,
-    lastName: FieldState,
-    dateOfBirth: SelectionState<LocalDate>,
-    gender: SelectionState<Gender>,
-    submissionOutcome: SubmissionOutcome?,
-    onSubmit: () -> Unit,
+    uiState: PatientRegistrationUiState,
+    onIntent: (PatientRegistrationIntent) -> Unit,
 ) {
-    var showDatePicker by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -98,7 +86,7 @@ fun PatientRegistrationComponent(
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            submissionOutcome?.let { outcome ->
+            uiState.submissionOutcome?.let { outcome ->
                 when (outcome) {
                     is SubmissionOutcome.Duplicate -> {
                         Card(
@@ -136,102 +124,130 @@ fun PatientRegistrationComponent(
                 }
             }
 
-            OutlinedTextField(
-                value = patientId.value,
-                onValueChange = patientId::onValueChanged,
-                label = { Text("Patient ID") },
-                isError = patientId.errorMessage != null,
-                supportingText = patientId.errorMessage?.let { { Text(it) } },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
+            PatientIdSegment(
+                state = uiState.patientId,
+                onValueChange = { onIntent(PatientRegistrationIntent.PatientIdChanged(it)) },
             )
 
-            OutlinedTextField(
-                value = firstName.value,
-                onValueChange = firstName::onValueChanged,
-                label = { Text("First Name") },
-                isError = firstName.errorMessage != null,
-                supportingText = firstName.errorMessage?.let { { Text(it) } },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
+            FirstNameSegment(
+                state = uiState.firstName,
+                onValueChange = { onIntent(PatientRegistrationIntent.FirstNameChanged(it)) },
             )
 
-            OutlinedTextField(
-                value = lastName.value,
-                onValueChange = lastName::onValueChanged,
-                label = { Text("Last Name") },
-                isError = lastName.errorMessage != null,
-                supportingText = lastName.errorMessage?.let { { Text(it) } },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                modifier = Modifier.fillMaxWidth(),
+            LastNameSegment(
+                state = uiState.lastName,
+                onValueChange = { onIntent(PatientRegistrationIntent.LastNameChanged(it)) },
             )
 
-            Column {
-                Text(
-                    text = "Date of Birth",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                val interactionSource = remember { MutableInteractionSource() }
-                LaunchedEffect(interactionSource) {
-                    interactionSource.interactions.collect { interaction ->
-                        if (interaction is PressInteraction.Release) {
-                            showDatePicker = true
-                        }
-                    }
-                }
-                OutlinedTextField(
-                    value = dateOfBirth.selected?.toString() ?: "",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Select Date of Birth") },
-                    isError = dateOfBirth.errorMessage != null,
-                    supportingText = dateOfBirth.errorMessage?.let { { Text(it) } },
-                    modifier = Modifier.fillMaxWidth(),
-                    interactionSource = interactionSource,
-                )
-            }
+            DateOfBirthSegment(
+                state = uiState.dateOfBirth,
+                onDateSelected = { onIntent(PatientRegistrationIntent.DateOfBirthSelected(it)) },
+            )
 
-            Column {
-                Text(
-                    text = "Gender",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Gender.entries.forEach { option ->
-                        FilterChip(
-                            selected = gender.selected == option,
-                            onClick = { gender.select(option) },
-                            label = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                        )
-                    }
-                }
-                gender.errorMessage?.let { errorMsg ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = errorMsg,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-            }
+            GenderSegment(
+                state = uiState.gender,
+                onGenderSelected = { onIntent(PatientRegistrationIntent.GenderSelected(it)) },
+            )
 
             Button(
-                onClick = onSubmit,
+                onClick = { onIntent(PatientRegistrationIntent.Submit) },
+                enabled = !uiState.isSubmitting,
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
             ) {
-                Text("Register Patient")
+                Text(if (uiState.isSubmitting) "Registering..." else "Register Patient")
             }
         }
+    }
+}
+
+/** Stateless segment for Patient ID field */
+@Composable
+fun PatientIdSegment(
+    state: FieldState,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = state.value,
+        onValueChange = onValueChange,
+        label = { Text("Patient ID") },
+        isError = state.errorMessage != null,
+        supportingText = state.errorMessage?.let { { Text(it) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Stateless segment for First Name field */
+@Composable
+fun FirstNameSegment(
+    state: FieldState,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = state.value,
+        onValueChange = onValueChange,
+        label = { Text("First Name") },
+        isError = state.errorMessage != null,
+        supportingText = state.errorMessage?.let { { Text(it) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Stateless segment for Last Name field */
+@Composable
+fun LastNameSegment(
+    state: FieldState,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = state.value,
+        onValueChange = onValueChange,
+        label = { Text("Last Name") },
+        isError = state.errorMessage != null,
+        supportingText = state.errorMessage?.let { { Text(it) } },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Stateless segment for Date of Birth field */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateOfBirthSegment(
+    state: SelectionState<LocalDate>,
+    onDateSelected: (LocalDate) -> Unit,
+) {
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    Column {
+        Text(
+            text = "Date of Birth",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        val interactionSource = remember { MutableInteractionSource() }
+        LaunchedEffect(interactionSource) {
+            interactionSource.interactions.collect { interaction ->
+                if (interaction is PressInteraction.Release) {
+                    showDatePicker = true
+                }
+            }
+        }
+        OutlinedTextField(
+            value = state.selected?.toString() ?: "",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Select Date of Birth") },
+            isError = state.errorMessage != null,
+            supportingText = state.errorMessage?.let { { Text(it) } },
+            modifier = Modifier.fillMaxWidth(),
+            interactionSource = interactionSource,
+        )
     }
 
     if (showDatePicker) {
@@ -247,7 +263,7 @@ fun PatientRegistrationComponent(
                                     .fromEpochMilliseconds(millis)
                                     .toLocalDateTime(TimeZone.UTC)
                                     .date
-                            dateOfBirth.select(localDate)
+                            onDateSelected(localDate)
                         }
                         showDatePicker = false
                     },
@@ -266,18 +282,49 @@ fun PatientRegistrationComponent(
     }
 }
 
+/** Stateless segment for Gender selection */
+@Composable
+fun GenderSegment(
+    state: SelectionState<Gender>,
+    onGenderSelected: (Gender) -> Unit,
+) {
+    Column {
+        Text(
+            text = "Gender",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Gender.entries.forEach { option ->
+                FilterChip(
+                    selected = state.selected == option,
+                    onClick = { onGenderSelected(option) },
+                    label = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                )
+            }
+        }
+        state.errorMessage?.let { errorMsg ->
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = errorMsg,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
 @Composable
 @Preview
 private fun PatientRegistrationScreenPreview() {
     MaterialTheme {
         PatientRegistrationComponent(
-            patientId = FieldState(),
-            firstName = FieldState(),
-            lastName = FieldState(),
-            dateOfBirth = SelectionState(),
-            gender = SelectionState(),
-            submissionOutcome = null,
-            onSubmit = {},
+            uiState = PatientRegistrationUiState(),
+            onIntent = {},
         )
     }
 }

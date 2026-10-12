@@ -56,7 +56,14 @@ package:
 
 ## UI & Compose Rules
 
-- **Composables should be lean and do just one thing** to allow for reusability.
+- **MVI Architecture & Reducer Pattern:**
+  - Every ViewModel follows MVI with a single immutable shared `UiState` data class and a reducer pattern.
+  - User interactions are dispatched as `UiIntent`s (or `UiAction`s) to the ViewModel, which reduces state deterministically.
+- **Composables & Form Field Segments:**
+  - Composables should be lean and do just one thing to allow for reusability.
+  - Every field in a form is a stateless composable segment taking only its relevant state and event callbacks.
+- **Form Validation on Submit:**
+  - Submit buttons must force validation on all fields first (revealing any errors on untouched fields) before initiating a repository save.
 - **Screens are split into Route and Component:**
   - **Route composable:** Handles ViewModel retrieval/injection, state collection, and navigation/side effects.
   - **Component composable:** Pure, stateless UI component that takes state values and event callbacks.

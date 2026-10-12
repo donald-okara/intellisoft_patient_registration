@@ -48,13 +48,13 @@ class PatientRegistrationViewModelTest {
                     navigator,
                     fixedClock(LocalDate(2026, 10, 12)),
                 )
-            viewModel.patientId.onValueChanged("P1")
-            viewModel.firstName.onValueChanged("Jane")
-            viewModel.lastName.onValueChanged("Mdoe")
-            viewModel.dateOfBirth.select(LocalDate(2000, 1, 1))
-            viewModel.gender.select(Gender.FEMALE)
+            viewModel.onIntent(PatientRegistrationIntent.PatientIdChanged("P1"))
+            viewModel.onIntent(PatientRegistrationIntent.FirstNameChanged("Jane"))
+            viewModel.onIntent(PatientRegistrationIntent.LastNameChanged("Mdoe"))
+            viewModel.onIntent(PatientRegistrationIntent.DateOfBirthSelected(LocalDate(2000, 1, 1)))
+            viewModel.onIntent(PatientRegistrationIntent.GenderSelected(Gender.FEMALE))
 
-            viewModel.onSubmit()
+            viewModel.onIntent(PatientRegistrationIntent.Submit)
             testScheduler.advanceUntilIdle()
 
             assertEquals(PatientId("P1"), repository.lastRegistered?.patientId)
@@ -76,14 +76,15 @@ class PatientRegistrationViewModelTest {
                     fixedClock(LocalDate(2026, 10, 12)),
                 )
 
-            viewModel.onSubmit()
+            viewModel.onIntent(PatientRegistrationIntent.Submit)
             testScheduler.advanceUntilIdle()
 
+            val state = viewModel.uiState.value
             assertEquals(null, repository.lastRegistered)
-            assertEquals("First name is required", viewModel.firstName.errorMessage)
-            assertEquals("Last name is required", viewModel.lastName.errorMessage)
-            assertEquals("Date of birth is required", viewModel.dateOfBirth.errorMessage)
-            assertEquals("Gender is required", viewModel.gender.errorMessage)
+            assertEquals("First name is required", state.firstName.errorMessage)
+            assertEquals("Last name is required", state.lastName.errorMessage)
+            assertEquals("Date of birth is required", state.dateOfBirth.errorMessage)
+            assertEquals("Gender is required", state.gender.errorMessage)
         }
 
     @Test
@@ -97,16 +98,16 @@ class PatientRegistrationViewModelTest {
                     navigator,
                     fixedClock(LocalDate(2026, 10, 12)),
                 )
-            viewModel.patientId.onValueChanged("P1")
-            viewModel.firstName.onValueChanged("Jane")
-            viewModel.lastName.onValueChanged("Mdoe")
-            viewModel.dateOfBirth.select(LocalDate(2000, 1, 1))
-            viewModel.gender.select(Gender.FEMALE)
+            viewModel.onIntent(PatientRegistrationIntent.PatientIdChanged("P1"))
+            viewModel.onIntent(PatientRegistrationIntent.FirstNameChanged("Jane"))
+            viewModel.onIntent(PatientRegistrationIntent.LastNameChanged("Mdoe"))
+            viewModel.onIntent(PatientRegistrationIntent.DateOfBirthSelected(LocalDate(2000, 1, 1)))
+            viewModel.onIntent(PatientRegistrationIntent.GenderSelected(Gender.FEMALE))
 
-            viewModel.onSubmit()
+            viewModel.onIntent(PatientRegistrationIntent.Submit)
             testScheduler.advanceUntilIdle()
 
-            assertIs<SubmissionOutcome.Duplicate>(viewModel.submissionOutcome.value)
+            assertIs<SubmissionOutcome.Duplicate>(viewModel.uiState.value.submissionOutcome)
             assertEquals(listOf(Route.PatientRegistration), navigator.backStack.toList())
         }
 
