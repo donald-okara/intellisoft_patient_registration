@@ -1,5 +1,6 @@
 package ke.don.intellisoft_patient_registration.feature.patientlisting
 
+import androidx.paging.testing.asSnapshot
 import ke.don.intellisoft_patient_registration.data.FakePatientListingRepository
 import ke.don.intellisoft_patient_registration.domain.BmiStatus
 import ke.don.intellisoft_patient_registration.domain.PatientListingRow
@@ -7,10 +8,7 @@ import ke.don.intellisoft_patient_registration.navigation.Navigator
 import ke.don.intellisoft_patient_registration.navigation.Route
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -23,9 +21,16 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+/**
+ * Uses UnconfinedTestDispatcher (not this project's usual StandardTestDispatcher) for Main -
+ * pagedRows' cachedIn(viewModelScope) launches an internal multicasting coroutine that must run
+ * for asSnapshot() to resolve, and StandardTestDispatcher only runs queued coroutines when
+ * something calls advanceUntilIdle()/runCurrent() - but the test body is itself suspended inside
+ * asSnapshot() at that point, so nothing ever would. Unconfined runs queued work eagerly instead.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PatientListingViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
+    private val testDispatcher = UnconfinedTestDispatcher()
 
     @BeforeTest
     fun setUp() {
@@ -53,9 +58,8 @@ class PatientListingViewModelTest {
                     fixedClock(today),
                 )
 
-            val state = viewModel.uiState.first { !it.isLoading }
-            assertEquals(today, state.selectedDate)
-            assertEquals(listOf(row1), state.rows)
+            assertEquals(today, viewModel.uiState.value.selectedDate)
+            assertEquals(listOf(row1), viewModel.pagedRows.asSnapshot())
         }
 
     @Test
@@ -78,15 +82,10 @@ class PatientListingViewModelTest {
                     fixedClock(today),
                 )
 
-            backgroundScope.launch { viewModel.uiState.collect {} }
-            testScheduler.advanceUntilIdle()
-
             viewModel.onIntent(PatientListingIntent.DateSelected(yesterday))
-            testScheduler.advanceUntilIdle()
 
-            val state = viewModel.uiState.value
-            assertEquals(yesterday, state.selectedDate)
-            assertEquals(listOf(rowYesterday), state.rows)
+            assertEquals(yesterday, viewModel.uiState.value.selectedDate)
+            assertEquals(listOf(rowYesterday), viewModel.pagedRows.asSnapshot())
         }
 
     @Test
@@ -102,7 +101,6 @@ class PatientListingViewModelTest {
                 )
 
             viewModel.onIntent(PatientListingIntent.AddPatientClicked)
-            testScheduler.advanceUntilIdle()
 
             assertEquals(
                 listOf(Route.PatientListing(), Route.PatientRegistration),
