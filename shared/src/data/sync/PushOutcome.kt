@@ -20,7 +20,14 @@ sealed interface PushOutcome {
     ) : PushOutcome
 }
 
-enum class NeedsAttentionReason { Unauthorized, ValidationFailed }
+/** [ValidationFailed.message] is the server's own rejection reason, not just "it was rejected". */
+sealed interface NeedsAttentionReason {
+    data object Unauthorized : NeedsAttentionReason
+
+    data class ValidationFailed(
+        val message: String,
+    ) : NeedsAttentionReason
+}
 
 /**
  * Requires the HttpClient passed to [call] to have `expectSuccess = true` (see
@@ -34,7 +41,10 @@ suspend fun classifyPush(call: suspend () -> Boolean): PushOutcome =
         if (e.response.status == HttpStatusCode.Unauthorized) {
             PushOutcome.NeedsAttention(NeedsAttentionReason.Unauthorized)
         } else {
-            PushOutcome.NeedsAttention(NeedsAttentionReason.ValidationFailed)
+            // e.message already carries Ktor's cached response text (see ClientRequestException) -
+            // re-reading e.response's body here would risk a double-receive on some engines.
+            val message = e.message ?: "Validation failed with status ${e.response.status}"
+            PushOutcome.NeedsAttention(NeedsAttentionReason.ValidationFailed(message))
         }
     } catch (e: ServerResponseException) {
         PushOutcome.Retriable

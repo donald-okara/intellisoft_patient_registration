@@ -8,6 +8,8 @@ import ke.don.intellisoft_patient_registration.datasource.remote.provideHttpClie
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /**
  * classifyPush only interprets the two Ktor exceptions expectSuccess=true throws for non-2xx
@@ -63,6 +65,8 @@ class PushOutcomeTest {
 
             val outcome = classifyPush { client.get("x").status == HttpStatusCode.OK }
 
-            assertEquals(PushOutcome.NeedsAttention(NeedsAttentionReason.ValidationFailed), outcome)
+            val reason = assertIs<PushOutcome.NeedsAttention>(outcome).reason
+            val validationFailure = assertIs<NeedsAttentionReason.ValidationFailed>(reason)
+            assertTrue(validationFailure.message.contains("422"))
         }
 }
