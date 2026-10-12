@@ -10,8 +10,7 @@ import ke.don.intellisoft_patient_registration.data.PatientRepository
 import ke.don.intellisoft_patient_registration.data.VitalsRepository
 
 /**
- * No real sync worker exists yet - that's the next phase, once there's a repository to call.
- * This proves the scheduler -> factory -> worker wiring end to end.
+ * Proves the scheduler -> factory -> worker wiring end to end, independent of any repository.
  */
 class NoOpWorker : AndroidWorker {
     override suspend fun doWork(
@@ -98,6 +97,28 @@ class RetryUnsyncedOverweightAssessmentsWorker(
 }
 
 /**
+ * Pulls the server's patient list into local storage - the list-sync direction, not the
+ * outbox/push direction the RetryUnsyncedXWorkers cover. Deliberately no backoff on failure
+ * (unlike offlineFirstWrite's push retries): a failed sync just waits for its own next periodic
+ * run, which doesn't carry the same urgency as a user-visible submission still being unsynced.
+ */
+class SyncPatientsWorker(
+    private val patientRepository: PatientRepository,
+) : AndroidWorker {
+    override suspend fun doWork(
+        input: String?,
+        env: WorkerEnvironment,
+    ): WorkerResult =
+        if (patientRepository.sync()) {
+            WorkerResult.Success()
+        } else {
+            WorkerResult.Failure(message = "Patient list sync failed", shouldRetry = false)
+        }
+
+    override fun close() = Unit
+}
+
+/**
  * Manual registry, not KSP-generated (`kmpworker-ksp` was skipped for this phase - see
  * DESIGN.md). Register each real worker here by the name passed to `enqueue(...)`.
  * [patientRepository]/[vitalsRepository]/[generalAssessmentRepository]/[overweightAssessmentRepository]
@@ -114,6 +135,7 @@ class AppWorkerFactory(
             put("NoOpWorker") { NoOpWorker() }
             if (patientRepository != null) {
                 put("RetryUnsyncedPatientsWorker") { RetryUnsyncedPatientsWorker(patientRepository) }
+                put("SyncPatientsWorker") { SyncPatientsWorker(patientRepository) }
             }
             if (vitalsRepository != null) {
                 put("RetryUnsyncedVitalsWorker") { RetryUnsyncedVitalsWorker(vitalsRepository) }

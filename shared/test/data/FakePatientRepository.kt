@@ -5,7 +5,9 @@ import ke.don.intellisoft_patient_registration.domain.PatientId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
-class FakePatientRepository : PatientRepository {
+class FakePatientRepository(
+    private val syncResult: Boolean = true,
+) : PatientRepository {
     var retryUnsyncedPushesCallCount = 0
         private set
 
@@ -23,5 +25,5 @@ class FakePatientRepository : PatientRepository {
         retryUnsyncedPushesCallCount++
     }
 
-    override suspend fun sync(): Boolean = true
+    override suspend fun sync(): Boolean = syncResult
 }
