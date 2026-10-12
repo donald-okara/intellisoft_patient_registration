@@ -28,6 +28,9 @@ interface VitalsDao {
     @Query("SELECT * FROM VitalsEntity WHERE patientId = :patientId")
     fun findByPatientId(patientId: String): Flow<List<VitalsEntity>>
 
+    @Query("SELECT * FROM VitalsEntity WHERE visitDate = :visitDate")
+    fun findByVisitDate(visitDate: String): Flow<List<VitalsEntity>>
+
     /** Keyed by the row's own id, not patientId - a patient can have many vitals rows. */
     @Query("UPDATE VitalsEntity SET synced = :synced WHERE id = :id")
     suspend fun markSynced(

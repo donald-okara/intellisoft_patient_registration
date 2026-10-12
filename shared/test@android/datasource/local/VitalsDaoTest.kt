@@ -122,4 +122,20 @@ class VitalsDaoTest {
 
             assertEquals(listOf("2025-10-31"), unsynced.map { it.visitDate })
         }
+
+    @Test
+    fun findByVisitDateReturnsOnlyRowsMatchingTheDate() =
+        runTest {
+            val db = newDatabase()
+            db.vitalsDao().insert(vitals(patientId = "P1", visitDate = "2026-10-12"))
+            db.vitalsDao().insert(vitals(patientId = "P2", visitDate = "2026-10-12"))
+            db.vitalsDao().insert(vitals(patientId = "P1", visitDate = "2026-10-11"))
+
+            val onDate = db.vitalsDao().findByVisitDate("2026-10-12").first()
+            db.close()
+
+            assertEquals(2, onDate.size)
+            assertEquals(listOf("P1", "P2"), onDate.map { it.patientId }.sorted())
+            assertEquals(setOf("2026-10-12"), onDate.map { it.visitDate }.toSet())
+        }
 }
