@@ -58,14 +58,23 @@ class PatientRegistrationApp : Application() {
                 )
             }.koin
 
+        // Resolve against the original repositoryModule bindings BEFORE loadModules below
+        // overrides them - otherwise each single{}'s own koin.get<X>(...) would resolve lazily,
+        // after the override, finding only itself and recursing infinitely (see task-2.3-report.md).
+        val patientRepository = koin.get<PatientRepository> { parametersOf(this) }
+        val vitalsRepository = koin.get<VitalsRepository> { parametersOf(this) }
+        val generalAssessmentRepository = koin.get<GeneralAssessmentRepository> { parametersOf(this) }
+        val overweightAssessmentRepository = koin.get<OverweightAssessmentRepository> { parametersOf(this) }
+        val patientListingRepository = koin.get<PatientListingRepository> { parametersOf(this) }
+
         koin.loadModules(
             listOf(
                 module {
-                    single { koin.get<PatientRepository> { parametersOf(this@PatientRegistrationApp) } }
-                    single { koin.get<VitalsRepository> { parametersOf(this@PatientRegistrationApp) } }
-                    single { koin.get<GeneralAssessmentRepository> { parametersOf(this@PatientRegistrationApp) } }
-                    single { koin.get<OverweightAssessmentRepository> { parametersOf(this@PatientRegistrationApp) } }
-                    single { koin.get<PatientListingRepository> { parametersOf(this@PatientRegistrationApp) } }
+                    single { patientRepository }
+                    single { vitalsRepository }
+                    single { generalAssessmentRepository }
+                    single { overweightAssessmentRepository }
+                    single { patientListingRepository }
                 },
             ),
         )
