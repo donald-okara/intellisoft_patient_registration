@@ -143,7 +143,9 @@ class DefaultPatientRepositoryTest {
             val stored = db.patientDao().findByPatientId("P1")
             db.close()
 
-            assertEquals(RegisterPatientResult.NeedsAttention(NeedsAttentionReason.ValidationFailed), result)
+            val reason = assertIs<RegisterPatientResult.NeedsAttention>(result).reason
+            val validationFailure = assertIs<NeedsAttentionReason.ValidationFailed>(reason)
+            assertTrue(validationFailure.message.isNotBlank())
             assertNull(stored)
         }
 
