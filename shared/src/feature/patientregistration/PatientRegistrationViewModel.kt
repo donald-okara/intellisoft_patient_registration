@@ -128,7 +128,12 @@ class PatientRegistrationViewModel(
 
         viewModelScope.launch {
             reduce { it.copy(isSubmitting = true) }
-            val today = clock.now().toStdlibInstant().toLocalDateTime(TimeZone.currentSystemDefault()).date
+            val today =
+                clock
+                    .now()
+                    .toStdlibInstant()
+                    .toLocalDateTime(TimeZone.currentSystemDefault())
+                    .date
             val patient =
                 Patient(
                     patientId = PatientId(currentState.patientId.value.trim()),
