@@ -28,7 +28,10 @@ class DefaultPatientRepository(
                 offlineFirstWrite(
                     localInsert = { patientDao.insert(patientMapper.toEntity(patient)) },
                     remotePush = { classifyPush { patientApi.register(patient.toRegisterRequestDto()).success } },
-                    onPushSucceeded = { patientDao.markSynced(patient.patientId.value, synced = true) },
+                    onPushSucceeded = {
+                        patientDao.markSynced(patient.patientId.value, synced = true)
+                        resolveServerId(patient.patientId)
+                    },
                     onNeedsAttention = { patientDao.deleteByPatientIds(setOf(patient.patientId.value)) },
                 )
         ) {
@@ -55,9 +58,36 @@ class DefaultPatientRepository(
                 .getOrDefault(PushOutcome.Retriable)
 
         when (outcome) {
-            PushOutcome.Synced -> patientDao.markSynced(entity.patientId, synced = true)
-            PushOutcome.Retriable -> Unit
-            is PushOutcome.NeedsAttention -> patientDao.deleteByPatientIds(setOf(entity.patientId))
+            PushOutcome.Synced -> {
+                patientDao.markSynced(entity.patientId, synced = true)
+                resolveServerId(patient.patientId)
+            }
+
+            PushOutcome.Retriable -> {
+                Unit
+            }
+
+            is PushOutcome.NeedsAttention -> {
+                patientDao.deleteByPatientIds(setOf(entity.patientId))
+            }
+        }
+    }
+
+    /**
+     * Best-effort: patients/register doesn't return the new row's numeric id (see
+     * docs/endpoints.md's confirmed flaws section), so this looks it up via patients/view and
+     * caches it locally. A failure here isn't surfaced - vital/add and visits/add's own pushes
+     * already fall back to Retriable when serverId is still unresolved (see
+     * DefaultVitalsRepository etc.), and the periodic patient sync worker backfills it as a
+     * second chance.
+     */
+    private suspend fun resolveServerId(patientId: PatientId) {
+        suspendRunCatching {
+            patientApi
+                .list()
+                .data
+                .firstOrNull { it.unique == patientId.value }
+                ?.let { dto -> patientDao.updateServerId(patientId.value, dto.id) }
         }
     }
 

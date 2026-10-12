@@ -11,7 +11,6 @@ import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 
 class GeneralAssessmentMapperTest {
     private val mapper = GeneralAssessmentMapper(FakeFieldEncryptor())
@@ -52,15 +51,21 @@ class GeneralAssessmentMapperTest {
             assertEquals(false, mapper.toDomain(entity).everDietedToLoseWeight)
         }
 
+    /**
+     * onDrugs sends "No", not null - visits/add rejects the request without it, confirmed live
+     * against the real API (see docs/endpoints.md's confirmed flaws section and
+     * GeneralAssessmentMapper's own doc comment).
+     */
     @Test
-    fun toAddVisitRequestDtoSetsOnDietNotOnDrugs() =
+    fun toAddVisitRequestDtoSetsOnDietAndAnInertOnDrugsPlaceholder() =
         runTest {
-            val dto = assessment.toAddVisitRequestDto()
+            val dto = assessment.toAddVisitRequestDto(serverPatientId = 13L)
 
             assertEquals("Good", dto.generalHealth)
             assertEquals("Yes", dto.onDiet)
-            assertNull(dto.onDrugs)
+            assertEquals("No", dto.onDrugs)
             assertEquals("Patient reports regular exercise.", dto.comments)
+            assertEquals("13", dto.patientId)
             assertEquals("5", dto.vitalId)
         }
 }

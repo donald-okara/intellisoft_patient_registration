@@ -11,6 +11,7 @@ import ke.don.intellisoft_patient_registration.data.mapper.OverweightAssessmentM
 import ke.don.intellisoft_patient_registration.data.mapper.ThrowingFieldEncryptor
 import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
+import ke.don.intellisoft_patient_registration.datasource.local.PatientEntity
 import ke.don.intellisoft_patient_registration.datasource.remote.KtorVisitApi
 import ke.don.intellisoft_patient_registration.datasource.remote.VisitApi
 import ke.don.intellisoft_patient_registration.datasource.remote.provideHttpClient
@@ -49,7 +50,26 @@ class DefaultOverweightAssessmentRepositoryTest {
                 .inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), AppDatabase::class.java)
                 .setDriver(AndroidSQLiteDriver())
                 .build()
-        return DefaultOverweightAssessmentRepository(db.overweightAssessmentDao(), api, mapper) to db
+        return DefaultOverweightAssessmentRepository(db.overweightAssessmentDao(), api, mapper, db.patientDao()) to db
+    }
+
+    /** visits/add needs the server's own numeric patient id (see OverweightAssessmentMapper's toAddVisitRequestDto). */
+    private suspend fun AppDatabase.seedPatient(
+        patientId: String,
+        serverId: Long = 1L,
+    ) {
+        patientDao().insert(
+            PatientEntity(
+                patientId = patientId,
+                serverId = serverId,
+                registrationDate = "2025-10-31",
+                firstName = "Jane",
+                lastName = "Mdoe",
+                dateOfBirth = "2000-01-01",
+                gender = "Female",
+                synced = true,
+            ),
+        )
     }
 
     private fun apiRespondingWith(status: HttpStatusCode): VisitApi =
@@ -72,6 +92,7 @@ class DefaultOverweightAssessmentRepositoryTest {
     fun submitSucceedsAndMarksSyncedWhenTheApiSucceeds() =
         runTest {
             val (repository, db) = newRepository()
+            db.seedPatient("P1")
 
             val result = repository.submitOverweightAssessment(assessment())
             val stored = db.overweightAssessmentDao().findByPatientId("P1").first()
@@ -86,6 +107,7 @@ class DefaultOverweightAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
 
             val result = repository.submitOverweightAssessment(assessment())
             val stored = db.overweightAssessmentDao().findByPatientId("P1").first()
@@ -111,6 +133,7 @@ class DefaultOverweightAssessmentRepositoryTest {
         runTest {
             val api = FakeVisitApi()
             val (repository, db) = newRepository(api)
+            db.seedPatient("P1")
             repository.submitOverweightAssessment(assessment())
 
             val result = repository.submitOverweightAssessment(assessment())
@@ -124,6 +147,7 @@ class DefaultOverweightAssessmentRepositoryTest {
     fun submitReturnsNeedsAttentionAndPurgesTheRowWhenUnauthorized() =
         runTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.Unauthorized))
+            db.seedPatient("P1")
 
             val result = repository.submitOverweightAssessment(assessment())
             val stored = db.overweightAssessmentDao().findByPatientId("P1").first()
@@ -137,6 +161,7 @@ class DefaultOverweightAssessmentRepositoryTest {
     fun submitReturnsNeedsAttentionAndPurgesTheRowWhenValidationFails() =
         runTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.UnprocessableEntity))
+            db.seedPatient("P1")
 
             val result = repository.submitOverweightAssessment(assessment())
             val stored = db.overweightAssessmentDao().findByPatientId("P1").first()
@@ -157,15 +182,23 @@ class DefaultOverweightAssessmentRepositoryTest {
                     .setDriver(AndroidSQLiteDriver())
                     .build()
             val mapper = OverweightAssessmentMapper(FakeFieldEncryptor())
+            db.seedPatient("P1")
             val rejecting =
                 DefaultOverweightAssessmentRepository(
                     db.overweightAssessmentDao(),
                     apiRespondingWith(HttpStatusCode.Unauthorized),
                     mapper,
+                    db.patientDao(),
                 )
             rejecting.submitOverweightAssessment(assessment())
 
-            val retrying = DefaultOverweightAssessmentRepository(db.overweightAssessmentDao(), FakeVisitApi(), mapper)
+            val retrying =
+                DefaultOverweightAssessmentRepository(
+                    db.overweightAssessmentDao(),
+                    FakeVisitApi(),
+                    mapper,
+                    db.patientDao(),
+                )
             val result = retrying.submitOverweightAssessment(assessment())
             db.close()
 
@@ -177,6 +210,7 @@ class DefaultOverweightAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitOverweightAssessment(assessment())
 
             val succeedingRepository =
@@ -184,6 +218,7 @@ class DefaultOverweightAssessmentRepositoryTest {
                     db.overweightAssessmentDao(),
                     FakeVisitApi(),
                     OverweightAssessmentMapper(FakeFieldEncryptor()),
+                    db.patientDao(),
                 )
             succeedingRepository.retryUnsyncedPushes()
             val stored = db.overweightAssessmentDao().findByPatientId("P1").first()
@@ -197,6 +232,7 @@ class DefaultOverweightAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitOverweightAssessment(assessment())
 
             repository.retryUnsyncedPushes()
@@ -211,6 +247,7 @@ class DefaultOverweightAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitOverweightAssessment(assessment())
 
             val rejectingRepository =
@@ -218,6 +255,7 @@ class DefaultOverweightAssessmentRepositoryTest {
                     db.overweightAssessmentDao(),
                     apiRespondingWith(HttpStatusCode.Unauthorized),
                     OverweightAssessmentMapper(FakeFieldEncryptor()),
+                    db.patientDao(),
                 )
             rejectingRepository.retryUnsyncedPushes()
             val stored = db.overweightAssessmentDao().findByPatientId("P1").first()

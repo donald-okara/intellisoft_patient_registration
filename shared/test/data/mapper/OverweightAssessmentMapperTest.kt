@@ -11,7 +11,6 @@ import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 
 class OverweightAssessmentMapperTest {
     private val mapper = OverweightAssessmentMapper(FakeFieldEncryptor())
@@ -44,15 +43,21 @@ class OverweightAssessmentMapperTest {
             assertFalse(entity.comments.contains("medication"))
         }
 
+    /**
+     * onDiet sends "No", not null - visits/add rejects the request without it, confirmed live
+     * against the real API (see docs/endpoints.md's confirmed flaws section and
+     * OverweightAssessmentMapper's own doc comment).
+     */
     @Test
-    fun toAddVisitRequestDtoSetsOnDrugsNotOnDiet() =
+    fun toAddVisitRequestDtoSetsOnDrugsAndAnInertOnDietPlaceholder() =
         runTest {
-            val dto = assessment.toAddVisitRequestDto()
+            val dto = assessment.toAddVisitRequestDto(serverPatientId = 13L)
 
             assertEquals("Poor", dto.generalHealth)
             assertEquals("No", dto.onDrugs)
-            assertNull(dto.onDiet)
+            assertEquals("No", dto.onDiet)
             assertEquals("Patient reports no current medication.", dto.comments)
+            assertEquals("13", dto.patientId)
             assertEquals("5", dto.vitalId)
         }
 }

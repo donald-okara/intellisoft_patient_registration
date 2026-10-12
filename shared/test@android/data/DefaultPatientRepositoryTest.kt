@@ -97,6 +97,59 @@ class DefaultPatientRepositoryTest {
             assertFalse(stored?.synced == true)
         }
 
+    /**
+     * patients/register never returns the new row's numeric id (see docs/endpoints.md's
+     * confirmed flaws section), so a successful push must trigger a follow-up lookup to resolve
+     * and cache it - vital/add and visits/add need this value, not PatientId (see
+     * VitalsMapper.toAddVitalsRequestDto).
+     */
+    @Test
+    fun registerResolvesAndCachesTheServersNumericIdAfterASuccessfulPush() =
+        runTest {
+            val api =
+                FakePatientApi(
+                    listResponse = {
+                        ApiResponse(
+                            "success",
+                            true,
+                            200,
+                            listOf(
+                                PatientDto(
+                                    id = 42,
+                                    unique = "P1",
+                                    firstname = "Jane",
+                                    lastname = "Doe",
+                                    dob = "2000-01-01",
+                                    gender = "Female",
+                                    regDate = "2025-10-31",
+                                    createdAt = "2025-10-31T00:00:00Z",
+                                    updatedAt = "2025-10-31T00:00:00Z",
+                                ),
+                            ),
+                        )
+                    },
+                )
+            val (repository, db) = newRepository(api)
+
+            repository.registerPatient(patient())
+            val stored = db.patientDao().findByPatientId("P1").first()
+            db.close()
+
+            assertEquals(42L, stored?.serverId)
+        }
+
+    @Test
+    fun registerLeavesServerIdNullWhenTheLookupFindsNoMatch() =
+        runTest {
+            val (repository, db) = newRepository()
+
+            repository.registerPatient(patient())
+            val stored = db.patientDao().findByPatientId("P1").first()
+            db.close()
+
+            assertNull(stored?.serverId)
+        }
+
     @Test
     fun registerReturnsErrorWhenMappingToAnEntityFailsUnexpectedly() =
         runTest {

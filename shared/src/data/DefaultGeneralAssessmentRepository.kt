@@ -9,6 +9,7 @@ import ke.don.intellisoft_patient_registration.data.sync.offlineFirstWrite
 import ke.don.intellisoft_patient_registration.data.sync.suspendRunCatching
 import ke.don.intellisoft_patient_registration.datasource.local.GeneralAssessmentDao
 import ke.don.intellisoft_patient_registration.datasource.local.GeneralAssessmentEntity
+import ke.don.intellisoft_patient_registration.datasource.local.PatientDao
 import ke.don.intellisoft_patient_registration.datasource.remote.VisitApi
 import ke.don.intellisoft_patient_registration.domain.GeneralAssessment
 import ke.don.intellisoft_patient_registration.domain.PatientId
@@ -19,6 +20,7 @@ class DefaultGeneralAssessmentRepository(
     private val generalAssessmentDao: GeneralAssessmentDao,
     private val visitApi: VisitApi,
     private val generalAssessmentMapper: GeneralAssessmentMapper,
+    private val patientDao: PatientDao,
 ) : GeneralAssessmentRepository {
     override suspend fun submitGeneralAssessment(assessment: GeneralAssessment): SubmitGeneralAssessmentResult {
         var insertedId: Long? = null
@@ -29,7 +31,7 @@ class DefaultGeneralAssessmentRepository(
                     localInsert = {
                         insertedId = generalAssessmentDao.insert(generalAssessmentMapper.toEntity(assessment))
                     },
-                    remotePush = { classifyPush { visitApi.add(assessment.toAddVisitRequestDto()).success } },
+                    remotePush = { pushAssessment(assessment) },
                     onPushSucceeded = { insertedId?.let { generalAssessmentDao.markSynced(it, synced = true) } },
                     onNeedsAttention = { insertedId?.let { generalAssessmentDao.deleteById(it) } },
                 )
@@ -53,15 +55,19 @@ class DefaultGeneralAssessmentRepository(
 
     private suspend fun retryPush(entity: GeneralAssessmentEntity) {
         val assessment = generalAssessmentMapper.toDomain(entity)
-        val outcome =
-            suspendRunCatching { classifyPush { visitApi.add(assessment.toAddVisitRequestDto()).success } }
-                .getOrDefault(PushOutcome.Retriable)
+        val outcome = suspendRunCatching { pushAssessment(assessment) }.getOrDefault(PushOutcome.Retriable)
 
         when (outcome) {
             PushOutcome.Synced -> generalAssessmentDao.markSynced(entity.id, synced = true)
             PushOutcome.Retriable -> Unit
             is PushOutcome.NeedsAttention -> generalAssessmentDao.deleteById(entity.id)
         }
+    }
+
+    /** See DefaultVitalsRepository.pushVitals for why serverId (not PatientId) is required here. */
+    private suspend fun pushAssessment(assessment: GeneralAssessment): PushOutcome {
+        val serverPatientId = patientDao.findServerId(assessment.patientId.value) ?: return PushOutcome.Retriable
+        return classifyPush { visitApi.add(assessment.toAddVisitRequestDto(serverPatientId)).success }
     }
 
     override fun getGeneralAssessmentsForPatient(patientId: PatientId): Flow<List<GeneralAssessment>> =
