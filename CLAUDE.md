@@ -284,12 +284,30 @@ Overweight repositories to repeat:
   the local save on network success." `CancellationException` is explicitly rethrown in two
   places (the remote push's own catch, and the outer catch) — a bare `catch (e: Exception)`
   would otherwise swallow coroutine cancellation.
-- **Pagination**: `getPatients(page, pageSize)` uses a plain Room `LIMIT`/`OFFSET` query
-  (`PatientDao.findPage`), not the AndroidX Paging library — no `androidx.paging` dependency
-  exists in this project and pulling one in for a `List<Patient>` return type wasn't justified.
-  Ordered most-recently-registered first (`registrationDate DESC`, which sorts correctly as a
-  string since it's ISO-8601), `patientId ASC` as a deterministic tiebreaker. `findAll()` (no
-  pagination) stays, for `sync()`'s key-reconciliation use, which genuinely needs every local key.
+- **Pagination**: two different approaches, by design, not inconsistency. `getPatients(page,
+  pageSize)` uses a plain Room `LIMIT`/`OFFSET` query (`PatientDao.findPage`) — it has no UI
+  consumer (no screen browses the full patient list unfiltered), so there was never a reason to
+  pull in a paging library for it. Ordered most-recently-registered first (`registrationDate
+  DESC`, which sorts correctly as a string since it's ISO-8601), `patientId ASC` as a
+  deterministic tiebreaker. `findAll()` (no pagination) stays, for `sync()`'s key-reconciliation
+  use, which genuinely needs every local key. Patient Listing, by contrast, *is* a real
+  infinite-scroll UI (`PatientListingScreen`), so it uses real AndroidX Paging 3:
+  `VitalsDao.findByVisitDate` returns a Room-generated `PagingSource<Int, VitalsEntity>`;
+  `PatientListingRepository.getListing` wraps it in a `Pager`/`PagingConfig(pageSize = 20)` and
+  exposes `Flow<PagingData<PatientListingRow>>`; `PatientListingScreen` consumes it via
+  `collectAsLazyPagingItems()`. `androidx.room:room-paging`/`androidx.paging:paging-common`/
+  `paging-compose`/`paging-testing` (all `2.8.5`/`3.5.2`, verified against Google Maven's module
+  metadata to publish real Android **and** iOS klibs before adopting them) are common
+  dependencies in `shared/module.yaml`. `PatientListingViewModel` is the one ViewModel in this
+  project that doesn't fold everything into a single MVI `UiState` — `PagingData<T>` is designed
+  to flow straight to Compose via `collectAsLazyPagingItems()` and can't be meaningfully embedded
+  in a plain data class, so `pagedRows: Flow<PagingData<PatientListingRow>>` (built with
+  `cachedIn(viewModelScope)`) sits alongside a slimmer `uiState` (just `selectedDate` now).
+  Testing a `PagingSource`/`Pager` directly needs real paging mechanics in test doubles too — a
+  static `PagingData.from(list)` fixture (fine for Compose previews) does *not* drive the
+  load-state transitions `androidx.paging.testing`'s `asSnapshot()` needs, so both `FakeVitalsDao`
+  and `FakePatientListingRepository` build a real position-based fake `PagingSource`/`Pager`
+  rather than a canned list.
 - **Outbox/retry for push failures** (`data/sync/PushOutcome.kt`): `offlineFirstWrite`'s
   `remotePush` returns `PushOutcome` (`Synced`/`Retriable`/`NeedsAttention(reason)`), not a bare
   `Boolean` — classified by `classifyPush`, which requires `HttpClientProvider`'s
