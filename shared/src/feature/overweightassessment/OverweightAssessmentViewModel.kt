@@ -69,22 +69,19 @@ class OverweightAssessmentViewModel(
         when (intent) {
             is OverweightAssessmentIntent.HealthStatusSelected -> {
                 reduce {
-                    it.copy(generalHealth = it.generalHealth.apply { select(intent.value) })
+                    it.copy(generalHealth = it.generalHealth.select(intent.value))
                 }
             }
 
             is OverweightAssessmentIntent.CurrentlyUsingDrugsSelected -> {
                 reduce {
-                    it.copy(
-                        currentlyUsingDrugs =
-                            it.currentlyUsingDrugs.apply { select(intent.value) },
-                    )
+                    it.copy(currentlyUsingDrugs = it.currentlyUsingDrugs.select(intent.value))
                 }
             }
 
             is OverweightAssessmentIntent.CommentsChanged -> {
                 reduce {
-                    it.copy(comments = it.comments.apply { onValueChanged(intent.value) })
+                    it.copy(comments = it.comments.onValueChanged(intent.value))
                 }
             }
 
@@ -99,14 +96,17 @@ class OverweightAssessmentViewModel(
     }
 
     private fun handleSubmit() {
-        val currentState = _uiState.value
-        currentState.generalHealth.touch()
-        currentState.currentlyUsingDrugs.touch()
-        currentState.comments.touch()
+        val touchedState =
+            _uiState.value.let {
+                it.copy(
+                    generalHealth = it.generalHealth.touch(),
+                    currentlyUsingDrugs = it.currentlyUsingDrugs.touch(),
+                    comments = it.comments.touch(),
+                )
+            }
+        reduce { touchedState }
 
-        reduce { it.copy() }
-
-        if (!currentState.canSubmit) return
+        if (!touchedState.canSubmit) return
 
         viewModelScope.launch {
             reduce { it.copy(isSubmitting = true) }
@@ -123,9 +123,9 @@ class OverweightAssessmentViewModel(
                     patientId = PatientId(patientId),
                     vitalsId = VitalsId(vitalsId),
                     visitDate = today,
-                    generalHealth = currentState.generalHealth.selected!!,
-                    currentlyUsingDrugs = currentState.currentlyUsingDrugs.selected!!,
-                    comments = Comments(currentState.comments.value.trim()),
+                    generalHealth = touchedState.generalHealth.selected!!,
+                    currentlyUsingDrugs = touchedState.currentlyUsingDrugs.selected!!,
+                    comments = Comments(touchedState.comments.value.trim()),
                 )
 
             val result = overweightAssessmentRepository.submitOverweightAssessment(assessment)

@@ -5,6 +5,7 @@ import ke.don.intellisoft_patient_registration.data.SubmitGeneralAssessmentResul
 import ke.don.intellisoft_patient_registration.data.SubmitOverweightAssessmentResult
 import ke.don.intellisoft_patient_registration.data.SubmitVitalsResult
 import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
+import ke.don.intellisoft_patient_registration.datasource.remote.apiErrorMessage
 
 /**
  * The one UI-facing shape all four form-submission screens render against. Each repository has
@@ -30,6 +31,38 @@ sealed interface SubmissionOutcome {
         val cause: Throwable,
     ) : SubmissionOutcome
 }
+
+/**
+ * A user-facing string, never a raw exception message or enum toString() - `Failed.cause` is
+ * typically a Ktor `ClientRequestException`/`IOException` whose `.message` reads like
+ * `Client request(POST https://.../user/signin) invalid: 401 Unauthorized.`, which is
+ * implementation detail, not something to show someone trying to sign in. When the server did
+ * send a real error message in its JSON body, apiErrorMessage() recovers it and that's shown
+ * instead - the generic fallback is only for causes with no usable server message at all (a
+ * timeout, a plain IOException, a non-JSON error page).
+ */
+val SubmissionOutcome?.displayMessage: String?
+    get() =
+        when (this) {
+            is SubmissionOutcome.Duplicate -> {
+                message
+            }
+
+            is SubmissionOutcome.Failed -> {
+                cause.apiErrorMessage() ?: "Something went wrong. Please try again."
+            }
+
+            is SubmissionOutcome.NeedsAttention -> {
+                when (reason) {
+                    is NeedsAttentionReason.Unauthorized -> "Your session has expired. Please sign in again."
+                    is NeedsAttentionReason.ValidationFailed -> reason.message
+                }
+            }
+
+            is SubmissionOutcome.Submitted, null -> {
+                null
+            }
+        }
 
 fun RegisterPatientResult.toSubmissionOutcome(): SubmissionOutcome =
     when (this) {

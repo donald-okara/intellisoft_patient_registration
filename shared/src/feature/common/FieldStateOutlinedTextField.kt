@@ -8,6 +8,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.VisualTransformation
 
 @Composable
 fun FieldStateOutlinedTextField(
@@ -21,6 +22,8 @@ fun FieldStateOutlinedTextField(
     interactionSource: MutableInteractionSource? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     if (interactionSource != null) {
         OutlinedTextField(
@@ -35,6 +38,8 @@ fun FieldStateOutlinedTextField(
             interactionSource = interactionSource,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon,
             modifier = modifier,
         )
     } else {
@@ -49,6 +54,8 @@ fun FieldStateOutlinedTextField(
             readOnly = readOnly,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
+            visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon,
             modifier = modifier,
         )
     }

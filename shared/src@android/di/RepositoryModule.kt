@@ -29,6 +29,7 @@ val repositoryModule =
             DefaultVitalsRepository(
                 vitalsDao = get<AppDatabase> { parametersOf(context) }.vitalsDao(),
                 vitalsApi = get(),
+                patientDao = get<AppDatabase> { parametersOf(context) }.patientDao(),
             )
         }
         single<GeneralAssessmentRepository> { (context: Context) ->
@@ -36,6 +37,7 @@ val repositoryModule =
                 generalAssessmentDao = get<AppDatabase> { parametersOf(context) }.generalAssessmentDao(),
                 visitApi = get(),
                 generalAssessmentMapper = get(),
+                patientDao = get<AppDatabase> { parametersOf(context) }.patientDao(),
             )
         }
         single<OverweightAssessmentRepository> { (context: Context) ->
@@ -43,6 +45,7 @@ val repositoryModule =
                 overweightAssessmentDao = get<AppDatabase> { parametersOf(context) }.overweightAssessmentDao(),
                 visitApi = get(),
                 overweightAssessmentMapper = get(),
+                patientDao = get<AppDatabase> { parametersOf(context) }.patientDao(),
             )
         }
         single<PatientListingRepository> { (context: Context) ->

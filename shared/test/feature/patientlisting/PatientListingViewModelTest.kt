@@ -1,7 +1,9 @@
 package ke.don.intellisoft_patient_registration.feature.patientlisting
 
 import androidx.paging.testing.asSnapshot
+import ke.don.intellisoft_patient_registration.data.CachedAuthTokenProvider
 import ke.don.intellisoft_patient_registration.data.FakePatientListingRepository
+import ke.don.intellisoft_patient_registration.data.FakeTokenStorage
 import ke.don.intellisoft_patient_registration.domain.BmiStatus
 import ke.don.intellisoft_patient_registration.domain.PatientListingRow
 import ke.don.intellisoft_patient_registration.navigation.Navigator
@@ -56,6 +58,7 @@ class PatientListingViewModelTest {
                     repository,
                     navigator,
                     fixedClock(today),
+                    CachedAuthTokenProvider(FakeTokenStorage()),
                 )
 
             assertEquals(today, viewModel.uiState.value.selectedDate)
@@ -80,6 +83,7 @@ class PatientListingViewModelTest {
                     repository,
                     navigator,
                     fixedClock(today),
+                    CachedAuthTokenProvider(FakeTokenStorage()),
                 )
 
             viewModel.onIntent(PatientListingIntent.DateSelected(yesterday))
@@ -98,6 +102,7 @@ class PatientListingViewModelTest {
                     repository,
                     navigator,
                     fixedClock(LocalDate(2026, 10, 12)),
+                    CachedAuthTokenProvider(FakeTokenStorage()),
                 )
 
             viewModel.onIntent(PatientListingIntent.AddPatientClicked)
@@ -106,6 +111,26 @@ class PatientListingViewModelTest {
                 listOf(Route.PatientListing(), Route.PatientRegistration),
                 navigator.backStack.toList(),
             )
+        }
+
+    @Test
+    fun signOutClickedClearsTheTokenAndNavigatesToSignIn() =
+        runTest(testDispatcher) {
+            val tokenStorage = FakeTokenStorage().apply { saveToken("token-123") }
+            val cachedAuthTokenProvider = CachedAuthTokenProvider(tokenStorage).apply { hydrate() }
+            val navigator = Navigator(Route.PatientListing())
+            val viewModel =
+                PatientListingViewModel(
+                    FakePatientListingRepository(),
+                    navigator,
+                    fixedClock(LocalDate(2026, 10, 12)),
+                    cachedAuthTokenProvider,
+                )
+
+            viewModel.onIntent(PatientListingIntent.SignOutClicked)
+
+            assertEquals(null, tokenStorage.getToken())
+            assertEquals(listOf(Route.SignIn), navigator.backStack.toList())
         }
 
     private fun fixedClock(date: LocalDate): Clock {

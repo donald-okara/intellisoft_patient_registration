@@ -40,14 +40,24 @@ class GeneralAssessmentMapper(
         )
 }
 
-fun GeneralAssessment.toAddVisitRequestDto(): AddVisitRequestDto =
+/**
+ * [serverPatientId] - see VitalsMapper's toAddVitalsRequestDto for why visits/add needs the
+ * server's own numeric id too, not [PatientId].
+ *
+ * onDrugs sends "No" rather than null/omitted, despite not being this form's question - confirmed
+ * live that visits/add rejects the request with a 422 ("on_drugs field is required") when it's
+ * absent, contradicting the single-endpoint-for-two-forms design (see docs/endpoints.md's
+ * confirmed flaws section). "No" is an inert placeholder: harmless either way, since this field
+ * means nothing for a General Assessment submission.
+ */
+fun GeneralAssessment.toAddVisitRequestDto(serverPatientId: Long): AddVisitRequestDto =
     AddVisitRequestDto(
         generalHealth = generalHealth.toApiString(),
         onDiet = everDietedToLoseWeight.toApiYesNo(),
-        onDrugs = null,
+        onDrugs = "No",
         comments = comments.value,
         visitDate = visitDate.toString(),
-        patientId = patientId.value,
+        patientId = serverPatientId.toString(),
         vitalId = vitalsId.value.toString(),
     )
 

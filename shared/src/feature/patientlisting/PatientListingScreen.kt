@@ -80,6 +80,11 @@ fun PatientListingComponent(
     AppScreenColumn(
         title = "Patient Listing",
         scrollable = false,
+        actions = {
+            TextButton(onClick = { onIntent(PatientListingIntent.SignOutClicked) }) {
+                Text("Sign Out")
+            }
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onIntent(PatientListingIntent.AddPatientClicked) },

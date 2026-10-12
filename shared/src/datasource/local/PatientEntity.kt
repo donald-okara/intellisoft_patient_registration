@@ -40,6 +40,20 @@ interface PatientDao {
         synced: Boolean,
     )
 
+    /**
+     * The server's own numeric id - patients/register never returns it (see docs/endpoints.md's
+     * confirmed flaws section), so it's resolved separately after a successful registration push
+     * and cached here. vital/add and visits/add both require this, not [patientId].
+     */
+    @Query("UPDATE PatientEntity SET serverId = :serverId WHERE patientId = :patientId")
+    suspend fun updateServerId(
+        patientId: String,
+        serverId: Long,
+    )
+
+    @Query("SELECT serverId FROM PatientEntity WHERE patientId = :patientId")
+    suspend fun findServerId(patientId: String): Long?
+
     @Query("DELETE FROM PatientEntity WHERE patientId IN (:patientIds)")
     suspend fun deleteByPatientIds(patientIds: Set<String>)
 

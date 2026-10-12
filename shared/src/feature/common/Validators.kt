@@ -21,14 +21,4 @@ object Validators {
             val parsed = value.toDoubleOrNull()
             if (parsed != null && parsed > 0) Decision.Valid else Decision.Invalid(message)
         }
-
-    /**
-     * Validates a Patient ID field. The assignment doesn't specify an exact ID format beyond it
-     * being a required identifier, so this deliberately aliases [required] rather than inventing
-     * an unspecified regex — tighten it if/when a real format constraint shows up.
-     */
-    fun patientIdFormat(message: String = "Enter a valid patient ID"): FieldValidator =
-        FieldValidator { value ->
-            if (value.isBlank()) Decision.Invalid(message) else Decision.Valid
-        }
 }

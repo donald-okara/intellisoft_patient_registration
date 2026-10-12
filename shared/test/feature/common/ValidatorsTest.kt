@@ -22,12 +22,4 @@ class ValidatorsTest {
         assertEquals(Decision.Invalid("Enter a valid number"), validator.validate("abc"))
         assertEquals(Decision.Invalid("Enter a valid number"), validator.validate("0"))
     }
-
-    @Test
-    fun patientIdFormatRejectsBlank() {
-        val validator = Validators.patientIdFormat()
-
-        assertEquals(Decision.Invalid("Enter a valid patient ID"), validator.validate(""))
-        assertEquals(Decision.Valid, validator.validate("P12345"))
-    }
 }

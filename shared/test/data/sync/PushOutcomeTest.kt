@@ -69,4 +69,25 @@ class PushOutcomeTest {
             val validationFailure = assertIs<NeedsAttentionReason.ValidationFailed>(reason)
             assertTrue(validationFailure.message.contains("422"))
         }
+
+    /** When the server sends a real message, it's shown as-is - not Ktor's raw wrapped exception text. */
+    @Test
+    fun aClientErrorWithAJsonBodyUsesTheServersOwnMessageNotTheRawExceptionText() =
+        runTest {
+            val client =
+                provideHttpClient(
+                    MockEngine {
+                        respond(
+                            content = """{"message":"email is required","success":false,"code":422}""",
+                            status = HttpStatusCode.UnprocessableEntity,
+                        )
+                    },
+                )
+
+            val outcome = classifyPush { client.get("x").status == HttpStatusCode.OK }
+
+            val reason = assertIs<PushOutcome.NeedsAttention>(outcome).reason
+            val validationFailure = assertIs<NeedsAttentionReason.ValidationFailed>(reason)
+            assertEquals("email is required", validationFailure.message)
+        }
 }

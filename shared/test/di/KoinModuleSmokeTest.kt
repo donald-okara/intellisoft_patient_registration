@@ -2,6 +2,8 @@ package ke.don.intellisoft_patient_registration.di
 
 import ke.don.intellisoft_patient_registration.data.CachedAuthTokenProvider
 import ke.don.intellisoft_patient_registration.datasource.local.TokenStorage
+import ke.don.intellisoft_patient_registration.navigation.Navigator
+import ke.don.intellisoft_patient_registration.navigation.Route
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.definition
 import org.koin.test.verify.injectedParameters
@@ -26,11 +28,15 @@ class KoinModuleSmokeTest {
         listOf(httpClientModule, apiModule).verifyAll()
     }
 
-    /** TokenStorage is a Koin runtime parameter here, not a graph dependency - see authModule. */
+    /**
+     * TokenStorage is a Koin runtime parameter here, not a graph dependency - see authModule.
+     * httpClientModule/apiModule are included because authModule's AuthRepository binding needs
+     * AuthApi.
+     */
     @OptIn(KoinExperimentalAPI::class)
     @Test
     fun authModuleResolves() {
-        authModule.verify(
+        listOf(httpClientModule, apiModule, authModule).verifyAll(
             injections = injectedParameters(definition<CachedAuthTokenProvider>(TokenStorage::class)),
         )
     }
@@ -39,5 +45,18 @@ class KoinModuleSmokeTest {
     @Test
     fun clockModuleResolves() {
         clockModule.verify()
+    }
+
+    /**
+     * Same blind-spot rationale as the other injections in this project - verify() reflects
+     * Navigator's declared constructor param (startDestination: Route) even though
+     * navigationModule's lambda hardcodes Route.Splash rather than calling get().
+     */
+    @OptIn(KoinExperimentalAPI::class)
+    @Test
+    fun navigationModuleResolves() {
+        navigationModule.verify(
+            injections = injectedParameters(definition<Navigator>(Route::class)),
+        )
     }
 }

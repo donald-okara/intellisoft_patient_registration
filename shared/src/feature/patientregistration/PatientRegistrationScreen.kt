@@ -67,11 +67,6 @@ fun PatientRegistrationComponent(
         title = "Patient Registration",
         outcome = uiState.submissionOutcome,
     ) {
-        PatientIdSegment(
-            state = uiState.patientId,
-            onValueChange = { onIntent(PatientRegistrationIntent.PatientIdChanged(it)) },
-        )
-
         FirstNameSegment(
             state = uiState.firstName,
             onValueChange = { onIntent(PatientRegistrationIntent.FirstNameChanged(it)) },
@@ -100,20 +95,6 @@ fun PatientRegistrationComponent(
             Text(if (uiState.isSubmitting) "Registering..." else "Register Patient")
         }
     }
-}
-
-/** Stateless segment for Patient ID field */
-@Composable
-fun PatientIdSegment(
-    state: FieldState,
-    onValueChange: (String) -> Unit,
-) {
-    FieldStateOutlinedTextField(
-        state = state,
-        onValueChange = onValueChange,
-        label = "Patient ID",
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-    )
 }
 
 /** Stateless segment for First Name field */

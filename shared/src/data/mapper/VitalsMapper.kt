@@ -30,11 +30,18 @@ fun VitalsEntity.toDomain(): Vitals =
         bmi = bmi,
     )
 
-fun Vitals.toAddVitalsRequestDto(): AddVitalsRequestDto =
+/**
+ * [serverPatientId] - not [PatientId] - because vital/add's `patient_id` is the server's own
+ * numeric id, confirmed by live-testing against the real API (see docs/endpoints.md's confirmed
+ * flaws section): sending our `unique` value 500s with a raw SQL type-mismatch error instead of a
+ * clean validation error, since the server column is an integer. patients/register never returns
+ * that id, so callers resolve and cache it separately (DefaultPatientRepository) before pushing.
+ */
+fun Vitals.toAddVitalsRequestDto(serverPatientId: Long): AddVitalsRequestDto =
     AddVitalsRequestDto(
         visitDate = visitDate.toString(),
         height = heightCm.toString(),
         weight = weightKg.toString(),
         bmi = bmi.toString(),
-        patientId = patientId.value,
+        patientId = serverPatientId.toString(),
     )

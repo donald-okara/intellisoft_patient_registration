@@ -13,16 +13,19 @@ package ke.don.intellisoft_patient_registration.feature.common
  * value ([select]) or by a Submit handler force-touching every field — matching [FieldState]'s
  * same touch-gated contract so a freshly opened form doesn't show every mandatory field as an
  * error before the user has interacted with it.
+ *
+ * Immutable by design, same rationale as [FieldState]: [select]/[touch] return a *new*
+ * SelectionState rather than mutating in place, so StateFlow/Compose correctly detect real
+ * changes instead of conflating them away or tearing down composable identity.
  */
 class SelectionState<T>(
     initial: T? = null,
+    initialTouched: Boolean = false,
     private val requiredMessage: String = "Required",
 ) {
-    var selected: T? = initial
-        private set
+    val selected: T? = initial
 
-    var touched: Boolean = false
-        private set
+    val touched: Boolean = initialTouched
 
     /** [Decision.Valid] once a value is [selected]; [Decision.Invalid] while it's still null. */
     val decision: Decision
@@ -35,12 +38,9 @@ class SelectionState<T>(
     val isValid: Boolean
         get() = decision is Decision.Valid
 
-    fun select(value: T) {
-        selected = value
-        touched = true
-    }
+    fun select(value: T): SelectionState<T> = SelectionState(value, initialTouched = true, requiredMessage)
 
-    fun touch() {
-        touched = true
-    }
+    /** No-op (returns this unchanged) when already touched, so an already-revealed field doesn't force a new instance. */
+    fun touch(): SelectionState<T> =
+        if (touched) this else SelectionState(selected, initialTouched = true, requiredMessage)
 }

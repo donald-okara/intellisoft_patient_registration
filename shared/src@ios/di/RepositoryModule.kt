@@ -26,6 +26,7 @@ val repositoryModule =
             DefaultVitalsRepository(
                 vitalsDao = get<AppDatabase>().vitalsDao(),
                 vitalsApi = get(),
+                patientDao = get<AppDatabase>().patientDao(),
             )
         }
         single<GeneralAssessmentRepository> {
@@ -33,6 +34,7 @@ val repositoryModule =
                 generalAssessmentDao = get<AppDatabase>().generalAssessmentDao(),
                 visitApi = get(),
                 generalAssessmentMapper = get(),
+                patientDao = get<AppDatabase>().patientDao(),
             )
         }
         single<OverweightAssessmentRepository> {
@@ -40,6 +42,7 @@ val repositoryModule =
                 overweightAssessmentDao = get<AppDatabase>().overweightAssessmentDao(),
                 visitApi = get(),
                 overweightAssessmentMapper = get(),
+                patientDao = get<AppDatabase>().patientDao(),
             )
         }
         single<PatientListingRepository> {

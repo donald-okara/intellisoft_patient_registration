@@ -8,6 +8,7 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
+import ke.don.intellisoft_patient_registration.datasource.local.PatientEntity
 import ke.don.intellisoft_patient_registration.datasource.local.VitalsDao
 import ke.don.intellisoft_patient_registration.datasource.local.VitalsEntity
 import ke.don.intellisoft_patient_registration.datasource.remote.KtorVitalsApi
@@ -53,7 +54,30 @@ class DefaultVitalsRepositoryTest {
                 .inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), AppDatabase::class.java)
                 .setDriver(AndroidSQLiteDriver())
                 .build()
-        return DefaultVitalsRepository(dao(db.vitalsDao()), api) to db
+        return DefaultVitalsRepository(dao(db.vitalsDao()), api, db.patientDao()) to db
+    }
+
+    /**
+     * vital/add needs the server's own numeric patient id (see VitalsMapper's
+     * toAddVitalsRequestDto) - these tests seed it directly rather than going through a real
+     * DefaultPatientRepository.registerPatient() call, which is out of scope here.
+     */
+    private suspend fun AppDatabase.seedPatient(
+        patientId: String,
+        serverId: Long = 1L,
+    ) {
+        patientDao().insert(
+            PatientEntity(
+                patientId = patientId,
+                serverId = serverId,
+                registrationDate = "2025-10-31",
+                firstName = "Jane",
+                lastName = "Mdoe",
+                dateOfBirth = "2000-01-01",
+                gender = "Female",
+                synced = true,
+            ),
+        )
     }
 
     private fun apiRespondingWith(status: HttpStatusCode): VitalsApi =
@@ -77,6 +101,7 @@ class DefaultVitalsRepositoryTest {
     fun submitSucceedsAndMarksSyncedWhenTheApiSucceeds() =
         runTest {
             val (repository, db) = newRepository()
+            db.seedPatient("P1")
 
             val result = repository.submitVitals(vitals())
             val stored = storedVitals(db)
@@ -86,11 +111,34 @@ class DefaultVitalsRepositoryTest {
             assertTrue(stored.single().synced)
         }
 
+    /**
+     * vital/add needs the server's own numeric patient id (see VitalsMapper's
+     * toAddVitalsRequestDto) - if DefaultPatientRepository hasn't resolved it yet, there's no
+     * point calling the API with a value it's guaranteed to reject, so this stays Retriable
+     * without ever reaching the network. The periodic retry worker picks it up once serverId is
+     * known.
+     */
+    @Test
+    fun submitStaysUnsyncedWithoutCallingTheApiWhenTheServerPatientIdIsUnresolved() =
+        runTest {
+            val api = FakeVitalsApi()
+            val (repository, db) = newRepository(api)
+
+            val result = repository.submitVitals(vitals())
+            val stored = storedVitals(db)
+            db.close()
+
+            assertEquals(SubmitVitalsResult.Success(synced = false), result)
+            assertFalse(stored.single().synced)
+            assertEquals(0, api.addCallCount)
+        }
+
     @Test
     fun submitSucceedsLocallyButStaysUnsyncedWhenTheApiFails() =
         runTest {
             val failingApi = FakeVitalsApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
 
             val result = repository.submitVitals(vitals())
             val stored = storedVitals(db)
@@ -116,6 +164,7 @@ class DefaultVitalsRepositoryTest {
         runTest {
             val api = FakeVitalsApi()
             val (repository, db) = newRepository(api)
+            db.seedPatient("P1")
             repository.submitVitals(vitals())
 
             val result = repository.submitVitals(vitals())
@@ -129,6 +178,8 @@ class DefaultVitalsRepositoryTest {
     fun sameDateIsAllowedForADifferentPatient() =
         runTest {
             val (repository, db) = newRepository()
+            db.seedPatient("P1")
+            db.seedPatient("P2", serverId = 2L)
             repository.submitVitals(vitals(patientId = "P1"))
 
             val result = repository.submitVitals(vitals(patientId = "P2"))
@@ -141,6 +192,7 @@ class DefaultVitalsRepositoryTest {
     fun submitReturnsNeedsAttentionAndPurgesTheRowWhenUnauthorized() =
         runTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.Unauthorized))
+            db.seedPatient("P1")
 
             val result = repository.submitVitals(vitals())
             val stored = storedVitals(db)
@@ -154,6 +206,7 @@ class DefaultVitalsRepositoryTest {
     fun submitReturnsNeedsAttentionAndPurgesTheRowWhenValidationFails() =
         runTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.UnprocessableEntity))
+            db.seedPatient("P1")
 
             val result = repository.submitVitals(vitals())
             val stored = storedVitals(db)
@@ -173,10 +226,12 @@ class DefaultVitalsRepositoryTest {
                     .inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), AppDatabase::class.java)
                     .setDriver(AndroidSQLiteDriver())
                     .build()
-            val rejecting = DefaultVitalsRepository(db.vitalsDao(), apiRespondingWith(HttpStatusCode.Unauthorized))
+            db.seedPatient("P1")
+            val rejecting =
+                DefaultVitalsRepository(db.vitalsDao(), apiRespondingWith(HttpStatusCode.Unauthorized), db.patientDao())
             rejecting.submitVitals(vitals())
 
-            val retrying = DefaultVitalsRepository(db.vitalsDao(), FakeVitalsApi())
+            val retrying = DefaultVitalsRepository(db.vitalsDao(), FakeVitalsApi(), db.patientDao())
             val result = retrying.submitVitals(vitals())
             db.close()
 
@@ -188,9 +243,10 @@ class DefaultVitalsRepositoryTest {
         runTest {
             val failingApi = FakeVitalsApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitVitals(vitals())
 
-            val succeedingRepository = DefaultVitalsRepository(db.vitalsDao(), FakeVitalsApi())
+            val succeedingRepository = DefaultVitalsRepository(db.vitalsDao(), FakeVitalsApi(), db.patientDao())
             succeedingRepository.retryUnsyncedPushes()
             val stored = storedVitals(db)
             db.close()
@@ -203,6 +259,7 @@ class DefaultVitalsRepositoryTest {
         runTest {
             val failingApi = FakeVitalsApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitVitals(vitals())
 
             repository.retryUnsyncedPushes()
@@ -217,10 +274,11 @@ class DefaultVitalsRepositoryTest {
         runTest {
             val failingApi = FakeVitalsApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitVitals(vitals())
 
             val rejectingRepository =
-                DefaultVitalsRepository(db.vitalsDao(), apiRespondingWith(HttpStatusCode.Unauthorized))
+                DefaultVitalsRepository(db.vitalsDao(), apiRespondingWith(HttpStatusCode.Unauthorized), db.patientDao())
             rejectingRepository.retryUnsyncedPushes()
             val stored = storedVitals(db)
             db.close()

@@ -11,6 +11,7 @@ import ke.don.intellisoft_patient_registration.data.mapper.GeneralAssessmentMapp
 import ke.don.intellisoft_patient_registration.data.mapper.ThrowingFieldEncryptor
 import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
+import ke.don.intellisoft_patient_registration.datasource.local.PatientEntity
 import ke.don.intellisoft_patient_registration.datasource.remote.KtorVisitApi
 import ke.don.intellisoft_patient_registration.datasource.remote.VisitApi
 import ke.don.intellisoft_patient_registration.datasource.remote.provideHttpClient
@@ -49,7 +50,26 @@ class DefaultGeneralAssessmentRepositoryTest {
                 .inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), AppDatabase::class.java)
                 .setDriver(AndroidSQLiteDriver())
                 .build()
-        return DefaultGeneralAssessmentRepository(db.generalAssessmentDao(), api, mapper) to db
+        return DefaultGeneralAssessmentRepository(db.generalAssessmentDao(), api, mapper, db.patientDao()) to db
+    }
+
+    /** visits/add needs the server's own numeric patient id (see GeneralAssessmentMapper's toAddVisitRequestDto). */
+    private suspend fun AppDatabase.seedPatient(
+        patientId: String,
+        serverId: Long = 1L,
+    ) {
+        patientDao().insert(
+            PatientEntity(
+                patientId = patientId,
+                serverId = serverId,
+                registrationDate = "2025-10-31",
+                firstName = "Jane",
+                lastName = "Mdoe",
+                dateOfBirth = "2000-01-01",
+                gender = "Female",
+                synced = true,
+            ),
+        )
     }
 
     private fun apiRespondingWith(status: HttpStatusCode): VisitApi =
@@ -72,6 +92,7 @@ class DefaultGeneralAssessmentRepositoryTest {
     fun submitSucceedsAndMarksSyncedWhenTheApiSucceeds() =
         runTest {
             val (repository, db) = newRepository()
+            db.seedPatient("P1")
 
             val result = repository.submitGeneralAssessment(assessment())
             val stored = db.generalAssessmentDao().findByPatientId("P1").first()
@@ -86,6 +107,7 @@ class DefaultGeneralAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
 
             val result = repository.submitGeneralAssessment(assessment())
             val stored = db.generalAssessmentDao().findByPatientId("P1").first()
@@ -111,6 +133,7 @@ class DefaultGeneralAssessmentRepositoryTest {
         runTest {
             val api = FakeVisitApi()
             val (repository, db) = newRepository(api)
+            db.seedPatient("P1")
             repository.submitGeneralAssessment(assessment())
 
             val result = repository.submitGeneralAssessment(assessment())
@@ -124,6 +147,7 @@ class DefaultGeneralAssessmentRepositoryTest {
     fun submitReturnsNeedsAttentionAndPurgesTheRowWhenUnauthorized() =
         runTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.Unauthorized))
+            db.seedPatient("P1")
 
             val result = repository.submitGeneralAssessment(assessment())
             val stored = db.generalAssessmentDao().findByPatientId("P1").first()
@@ -137,6 +161,7 @@ class DefaultGeneralAssessmentRepositoryTest {
     fun submitReturnsNeedsAttentionAndPurgesTheRowWhenValidationFails() =
         runTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.UnprocessableEntity))
+            db.seedPatient("P1")
 
             val result = repository.submitGeneralAssessment(assessment())
             val stored = db.generalAssessmentDao().findByPatientId("P1").first()
@@ -157,15 +182,18 @@ class DefaultGeneralAssessmentRepositoryTest {
                     .setDriver(AndroidSQLiteDriver())
                     .build()
             val mapper = GeneralAssessmentMapper(FakeFieldEncryptor())
+            db.seedPatient("P1")
             val rejecting =
                 DefaultGeneralAssessmentRepository(
                     db.generalAssessmentDao(),
                     apiRespondingWith(HttpStatusCode.Unauthorized),
                     mapper,
+                    db.patientDao(),
                 )
             rejecting.submitGeneralAssessment(assessment())
 
-            val retrying = DefaultGeneralAssessmentRepository(db.generalAssessmentDao(), FakeVisitApi(), mapper)
+            val retrying =
+                DefaultGeneralAssessmentRepository(db.generalAssessmentDao(), FakeVisitApi(), mapper, db.patientDao())
             val result = retrying.submitGeneralAssessment(assessment())
             db.close()
 
@@ -177,6 +205,7 @@ class DefaultGeneralAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitGeneralAssessment(assessment())
 
             val succeedingRepository =
@@ -184,6 +213,7 @@ class DefaultGeneralAssessmentRepositoryTest {
                     db.generalAssessmentDao(),
                     FakeVisitApi(),
                     GeneralAssessmentMapper(FakeFieldEncryptor()),
+                    db.patientDao(),
                 )
             succeedingRepository.retryUnsyncedPushes()
             val stored = db.generalAssessmentDao().findByPatientId("P1").first()
@@ -197,6 +227,7 @@ class DefaultGeneralAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitGeneralAssessment(assessment())
 
             repository.retryUnsyncedPushes()
@@ -211,6 +242,7 @@ class DefaultGeneralAssessmentRepositoryTest {
         runTest {
             val failingApi = FakeVisitApi(addResponse = { throw RuntimeException("network down") })
             val (repository, db) = newRepository(failingApi)
+            db.seedPatient("P1")
             repository.submitGeneralAssessment(assessment())
 
             val rejectingRepository =
@@ -218,6 +250,7 @@ class DefaultGeneralAssessmentRepositoryTest {
                     db.generalAssessmentDao(),
                     apiRespondingWith(HttpStatusCode.Unauthorized),
                     GeneralAssessmentMapper(FakeFieldEncryptor()),
+                    db.patientDao(),
                 )
             rejectingRepository.retryUnsyncedPushes()
             val stored = db.generalAssessmentDao().findByPatientId("P1").first()

@@ -45,12 +45,12 @@ class VitalsMapperTest {
 
     @Test
     fun toAddVitalsRequestDtoSendsStringTypedFields() {
-        val dto = vitals.toAddVitalsRequestDto()
+        val dto = vitals.toAddVitalsRequestDto(serverPatientId = 7L)
 
         assertEquals("2025-10-31", dto.visitDate)
         assertEquals("170.0", dto.height)
         assertEquals("65.0", dto.weight)
         assertEquals("22.5", dto.bmi)
-        assertEquals("P1", dto.patientId)
+        assertEquals("7", dto.patientId)
     }
 }

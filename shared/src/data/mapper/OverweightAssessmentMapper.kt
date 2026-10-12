@@ -40,13 +40,21 @@ class OverweightAssessmentMapper(
         )
 }
 
-fun OverweightAssessment.toAddVisitRequestDto(): AddVisitRequestDto =
+/**
+ * [serverPatientId] - see VitalsMapper's toAddVitalsRequestDto for why visits/add needs the
+ * server's own numeric id too, not [PatientId].
+ *
+ * onDiet sends "No" rather than null/omitted - same confirmed-live server requirement as
+ * GeneralAssessmentMapper's onDrugs, mirrored for this form (see docs/endpoints.md's confirmed
+ * flaws section).
+ */
+fun OverweightAssessment.toAddVisitRequestDto(serverPatientId: Long): AddVisitRequestDto =
     AddVisitRequestDto(
         generalHealth = generalHealth.toApiString(),
-        onDiet = null,
+        onDiet = "No",
         onDrugs = currentlyUsingDrugs.toApiYesNo(),
         comments = comments.value,
         visitDate = visitDate.toString(),
-        patientId = patientId.value,
+        patientId = serverPatientId.toString(),
         vitalId = vitalsId.value.toString(),
     )

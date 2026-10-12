@@ -3,6 +3,7 @@ package ke.don.intellisoft_patient_registration.di
 import ke.don.intellisoft_patient_registration.data.mapper.GeneralAssessmentMapper
 import ke.don.intellisoft_patient_registration.data.mapper.OverweightAssessmentMapper
 import ke.don.intellisoft_patient_registration.data.mapper.PatientMapper
+import ke.don.intellisoft_patient_registration.datasource.local.EncryptedTokenStorage
 import ke.don.intellisoft_patient_registration.datasource.local.FieldEncryptor
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.definition
@@ -66,5 +67,15 @@ class AndroidKoinModuleTest {
             repositoryModule,
             workManagerModule,
         ).verifyAll(injections = mapperInjections)
+    }
+
+    /** Same blind-spot rationale as mapperInjections - verify() can't see the qualified get() call inside the lambda body. */
+    private val tokenStorageInjections =
+        injectedParameters(definition<EncryptedTokenStorage>(FieldEncryptor::class))
+
+    @OptIn(KoinExperimentalAPI::class)
+    @Test
+    fun tokenStorageModuleResolvesAgainstCryptoModule() {
+        listOf(cryptoModule, tokenStorageModule).verifyAll(injections = tokenStorageInjections)
     }
 }
