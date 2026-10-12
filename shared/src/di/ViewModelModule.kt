@@ -2,6 +2,7 @@ package ke.don.intellisoft_patient_registration.di
 
 import ke.don.intellisoft_patient_registration.feature.generalassessment.GeneralAssessmentViewModel
 import ke.don.intellisoft_patient_registration.feature.overweightassessment.OverweightAssessmentViewModel
+import ke.don.intellisoft_patient_registration.feature.patientlisting.PatientListingViewModel
 import ke.don.intellisoft_patient_registration.feature.patientregistration.PatientRegistrationViewModel
 import ke.don.intellisoft_patient_registration.feature.vitals.VitalsViewModel
 import org.koin.core.module.dsl.viewModel
@@ -11,6 +12,7 @@ import org.koin.dsl.module
 val viewModelModule =
     module {
         viewModelOf(::PatientRegistrationViewModel)
+        viewModelOf(::PatientListingViewModel)
         viewModel { params -> VitalsViewModel(get(), get(), get(), patientId = params.get()) }
         viewModel { params ->
             GeneralAssessmentViewModel(

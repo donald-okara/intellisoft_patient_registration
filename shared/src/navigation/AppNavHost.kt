@@ -7,6 +7,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import ke.don.intellisoft_patient_registration.feature.generalassessment.GeneralAssessmentScreen
 import ke.don.intellisoft_patient_registration.feature.overweightassessment.OverweightAssessmentScreen
+import ke.don.intellisoft_patient_registration.feature.patientlisting.PatientListingScreen
 import ke.don.intellisoft_patient_registration.feature.patientregistration.PatientRegistrationScreen
 import ke.don.intellisoft_patient_registration.feature.vitals.VitalsScreen
 import org.koin.compose.koinInject
@@ -52,6 +53,11 @@ fun AppNavHost(navigator: Navigator = koinInject()) {
                             koinViewModel {
                                 parametersOf(navigator, key.patientId, key.vitalsId)
                             },
+                    )
+                }
+                entry<Route.PatientListing> {
+                    PatientListingScreen(
+                        viewModel = koinViewModel { parametersOf(navigator) },
                     )
                 }
             },

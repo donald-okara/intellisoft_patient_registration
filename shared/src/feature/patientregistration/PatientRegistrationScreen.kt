@@ -258,3 +258,20 @@ private fun PatientRegistrationScreenPreview() {
         )
     }
 }
+
+@Composable
+@Preview
+private fun PatientRegistrationScreenPreview_WithDuplicateError() {
+    MaterialTheme {
+        PatientRegistrationComponent(
+            uiState =
+                PatientRegistrationUiState(
+                    submissionOutcome =
+                        ke.don.intellisoft_patient_registration.feature.common.SubmissionOutcome.Duplicate(
+                            "This Patient ID is already registered.",
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
+}

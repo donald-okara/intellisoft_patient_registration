@@ -101,3 +101,20 @@ private fun VitalsScreenPreview() {
         )
     }
 }
+
+@Composable
+@Preview
+private fun VitalsScreenPreview_WithDuplicateError() {
+    MaterialTheme {
+        VitalsComponent(
+            uiState =
+                VitalsUiState(
+                    submissionOutcome =
+                        ke.don.intellisoft_patient_registration.feature.common.SubmissionOutcome.Duplicate(
+                            "Vitals have already been submitted for this patient today.",
+                        ),
+                ),
+            onIntent = {},
+        )
+    }
+}
