@@ -43,4 +43,16 @@ class FieldState(
     fun touch() {
         touched = true
     }
+
+    /**
+     * Deliberately never equal, even to itself - [onValueChanged]/[touch] mutate this instance
+     * in place, so a ViewModel's `uiState.copy(email = uiState.email.apply { onValueChanged(x) })`
+     * reduction always carries the *same* FieldState reference in both the old and new UiState.
+     * Without this override, that makes the two UiState instances structurally equal, and
+     * StateFlow conflates/skips equal consecutive values - so Compose's collectAsState() never
+     * sees a new emission and the field looks frozen, even though the value did change.
+     */
+    override fun equals(other: Any?): Boolean = false
+
+    override fun hashCode(): Int = super.hashCode()
 }
