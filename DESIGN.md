@@ -46,10 +46,16 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   avoids a `GeneralAssessment` that could hold a `currentlyUsingDrugs` value.
 - **kmpworkmanager is Android-only; Room/DataStore/crypto target both platforms** (iOS
   dependency-resolution-verified only, never compiled — no Xcode here). No KSP-generated worker
-  factories (`AppWorkerFactory` is hand-written) or `startKoin {}` call anywhere yet — Koin
-  modules (including the new `databaseModule`/`cryptoModule`) are verified with `Module.verify()`
-  rather than started for real, same "prove the wiring, don't fake production usage" pattern as
-  the rest of this project's infra.
+  factories (`AppWorkerFactory` is hand-written). `startKoin {}` now exists for real
+  (`PatientRegistrationApp.onCreate()`) — every Koin module up to that point was only ever
+  proven with `Module.verify()`, "prove the wiring, don't fake production usage," which still
+  holds for the modules themselves; it's the app-level bootstrap that actually starts Koin now.
+  `PatientRegistrationApp` resolves a real `AppWorkerFactory`, calls `KmpWorkManager.initialize(...)`,
+  then schedules five periodic tasks — deliberately untested glue (same status as `MainActivity`;
+  real WorkManager integration under Robolectric would need a new test dependency nothing else
+  here needs), but the *scheduling decision itself* (which workers, what interval, what
+  constraints) is split into plain testable data (`BackgroundSyncScheduling.kt`), exercised
+  against `FakeBackgroundTaskScheduler`.
 - **Considered and deliberately not built**: crash/error reporting (e.g. Sentry). Worth flagging
   given this handles sensitive health data, but not worth scaffolding code nobody runs — a
   living decision, not a line item to ship.
@@ -90,9 +96,7 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
 ## What was simplified or left out
 
 - `kmpworkmanager-http` was skipped — pins Ktor 3.1.x, conflicting with this project's own Ktor
-  3.6.0 client. Real sync workers will call the project's own `HttpClient` instead.
-- No `KmpWorkManager.initialize(...)` or `startKoin {}` call exists yet — nothing real to run in
-  production until a repository/`Application` wiring phase adds one.
+  3.6.0 client. Real sync workers call the project's own `HttpClient` instead.
 - ViewModels and the five screens don't exist yet. All four repositories do now, including the
   app-layer translation from a DB constraint violation to a domain-named result
   (`DuplicatePatientId`/`DuplicateVisitDate`) - what's left is wiring that into UI-facing
@@ -121,9 +125,15 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   deliberate scope cuts, not oversights. A fresh sign-in does not silently resurrect a stale push
   behind the user's back; they resubmit, same as for a validation failure. That in turn means a
   purged `ValidationFailed` row has **no path back** until a real edit flow exists — worth
-  stating plainly rather than treating "resubmit" as a complete answer. Each repository has its
-  own `RetryUnsyncedXWorker` (kmpworkmanager) retrying only its own `Retriable` rows, on its own
-  periodic interval - no retry-count cap or backoff math, the interval itself is the backoff.
+  stating plainly rather than treating "resubmit" as a complete answer.
+- **Two layers of retry for a `Retriable` push, not one.** `offlineFirstWrite` itself now retries
+  up to 3 times with exponential backoff (~1s, ~2s - `data/sync/RetryPolicy.kt`) before falling
+  back to `synced = false`; each repository's own `RetryUnsyncedXWorker` (kmpworkmanager,
+  Android-only) is the coarser safety net behind that, retrying whatever's still unsynced on its
+  own 15-minute periodic interval - no retry-count cap there, the interval itself is that layer's
+  backoff. The pull-sync direction (`SyncPatientsWorker`) deliberately gets neither: a failed
+  sync just waits for its own next periodic run, since it doesn't carry a user-visible
+  submission's urgency.
 
 ## Shared KMP module vs. platform-specific
 
