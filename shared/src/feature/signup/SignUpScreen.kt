@@ -13,12 +13,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import ke.don.intellisoft_patient_registration.feature.common.FieldState
 import ke.don.intellisoft_patient_registration.feature.common.FieldStateOutlinedTextField
 import ke.don.intellisoft_patient_registration.feature.common.FormScreenColumn
+import ke.don.intellisoft_patient_registration.feature.common.PasswordSegment
 import ke.don.intellisoft_patient_registration.feature.common.SubmissionOutcome
 
 /**
@@ -84,21 +83,6 @@ fun SignUpComponent(
             Text("Already have an account? Sign in")
         }
     }
-}
-
-/** Stateless segment for the password field. */
-@Composable
-fun PasswordSegment(
-    state: FieldState,
-    onValueChange: (String) -> Unit,
-) {
-    FieldStateOutlinedTextField(
-        state = state,
-        onValueChange = onValueChange,
-        label = "Password",
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-        visualTransformation = PasswordVisualTransformation(),
-    )
 }
 
 @Composable

@@ -23,6 +23,7 @@ fun FieldStateOutlinedTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    trailingIcon: (@Composable () -> Unit)? = null,
 ) {
     if (interactionSource != null) {
         OutlinedTextField(
@@ -38,6 +39,7 @@ fun FieldStateOutlinedTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon,
             modifier = modifier,
         )
     } else {
@@ -53,6 +55,7 @@ fun FieldStateOutlinedTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             visualTransformation = visualTransformation,
+            trailingIcon = trailingIcon,
             modifier = modifier,
         )
     }
