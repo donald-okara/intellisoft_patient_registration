@@ -5,6 +5,8 @@ dependencies:
   - $libs.androidx.activity.compose
   - $compose.preview
   - $compose.uiTooling
+  - io.insert-koin:koin-core:4.2.2
+  - dev.brewkits:kmpworkmanager:3.5.0
 
 settings:
   compose: enabled

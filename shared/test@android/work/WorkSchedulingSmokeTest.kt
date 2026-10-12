@@ -2,6 +2,7 @@ package ke.don.intellisoft_patient_registration.work
 
 import dev.brewkits.kmpworkmanager.background.domain.ScheduleResult
 import dev.brewkits.kmpworkmanager.background.domain.WorkerEnvironment
+import dev.brewkits.kmpworkmanager.background.domain.WorkerResult
 import dev.brewkits.kmpworkmanager.background.domain.enqueueOneTime
 import dev.brewkits.kmpworkmanager.testing.FakeBackgroundTaskScheduler
 import ke.don.intellisoft_patient_registration.data.FakeGeneralAssessmentRepository
@@ -11,6 +12,8 @@ import ke.don.intellisoft_patient_registration.data.FakeVitalsRepository
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -126,5 +129,36 @@ class WorkSchedulingSmokeTest {
             worker.doWork(input = null, env = WorkerEnvironment())
 
             assertEquals(1, repository.retryUnsyncedPushesCallCount)
+        }
+
+    @Test
+    fun factoryResolvesSyncPatientsWorkerWhenGivenAPatientRepository() =
+        runTest {
+            val factory = AppWorkerFactory(patientRepository = FakePatientRepository())
+
+            val worker = factory.createWorker("SyncPatientsWorker")
+
+            assertTrue(worker is SyncPatientsWorker)
+        }
+
+    @Test
+    fun syncPatientsWorkerSucceedsWhenTheRepositorySyncSucceeds() =
+        runTest {
+            val worker = SyncPatientsWorker(FakePatientRepository(syncResult = true))
+
+            val result = worker.doWork(input = null, env = WorkerEnvironment())
+
+            assertIs<WorkerResult.Success>(result)
+        }
+
+    @Test
+    fun syncPatientsWorkerFailsWithoutRetryWhenTheRepositorySyncFails() =
+        runTest {
+            val worker = SyncPatientsWorker(FakePatientRepository(syncResult = false))
+
+            val result = worker.doWork(input = null, env = WorkerEnvironment())
+
+            val failure = assertIs<WorkerResult.Failure>(result)
+            assertFalse(failure.shouldRetry)
         }
 }

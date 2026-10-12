@@ -53,4 +53,18 @@ class AndroidKoinModuleTest {
         listOf(httpClientModule, apiModule, cryptoModule, mapperModule, databaseModule, repositoryModule)
             .verifyAll(injections = mapperInjections)
     }
+
+    @OptIn(KoinExperimentalAPI::class)
+    @Test
+    fun workManagerModuleResolvesAgainstFullGraph() {
+        listOf(
+            httpClientModule,
+            apiModule,
+            cryptoModule,
+            mapperModule,
+            databaseModule,
+            repositoryModule,
+            workManagerModule,
+        ).verifyAll(injections = mapperInjections)
+    }
 }
