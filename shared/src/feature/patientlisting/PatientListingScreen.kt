@@ -38,9 +38,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.paging.LoadState
+import androidx.paging.PagingData
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import ke.don.intellisoft_patient_registration.domain.BmiStatus
 import ke.don.intellisoft_patient_registration.domain.PatientListingRow
 import ke.don.intellisoft_patient_registration.feature.common.AppScreenColumn
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -52,19 +57,24 @@ import kotlinx.datetime.toLocalDateTime
 @Composable
 fun PatientListingScreen(viewModel: PatientListingViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val items = viewModel.pagedRows.collectAsLazyPagingItems()
 
     PatientListingComponent(
         uiState = uiState,
+        items = items,
         onIntent = viewModel::onIntent,
     )
 }
 
 /**
- * Component composable: stateless UI layout that receives shared UiState and intent callbacks.
+ * Component composable: stateless UI layout that receives shared UiState, the paged rows, and
+ * intent callbacks. [LazyPagingItems] is still constructible with no ViewModel/Koin/Navigation -
+ * collectAsLazyPagingItems() only needs a plain Flow<PagingData<T>>, so this stays previewable.
  */
 @Composable
 fun PatientListingComponent(
     uiState: PatientListingUiState,
+    items: LazyPagingItems<PatientListingRow>,
     onIntent: (PatientListingIntent) -> Unit,
 ) {
     AppScreenColumn(
@@ -83,22 +93,23 @@ fun PatientListingComponent(
             onDateSelected = { onIntent(PatientListingIntent.DateSelected(it)) },
         )
 
-        if (uiState.isLoading) {
+        val isRefreshing = items.loadState.refresh is LoadState.Loading
+        if (isRefreshing && items.itemCount == 0) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
-        } else if (uiState.rows.isEmpty()) {
+        } else if (items.itemCount == 0) {
             EmptyListingSegment(selectedDate = uiState.selectedDate)
         } else {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(uiState.rows) { row ->
-                    PatientListingRowItem(row = row)
+                items(items.itemCount) { index ->
+                    items[index]?.let { row -> PatientListingRowItem(row = row) }
                 }
             }
         }
@@ -239,22 +250,19 @@ fun EmptyListingSegment(selectedDate: LocalDate) {
 @Preview
 private fun PatientListingScreenPreview_WithRows() {
     MaterialTheme {
-        PatientListingComponent(
-            uiState =
-                PatientListingUiState(
-                    selectedDate = LocalDate(2026, 10, 12),
-                    rows =
-                        listOf(
-                            PatientListingRow(name = "Jane Mdoe", age = 26, bmi = 21.6, status = BmiStatus.NORMAL),
-                            PatientListingRow(name = "John Doe", age = 30, bmi = 27.5, status = BmiStatus.OVERWEIGHT),
-                            PatientListingRow(
-                                name = "Alice Smith",
-                                age = 22,
-                                bmi = 17.2,
-                                status = BmiStatus.UNDERWEIGHT,
-                            ),
-                        ),
+        val items =
+            flowOf(
+                PagingData.from(
+                    listOf(
+                        PatientListingRow(name = "Jane Mdoe", age = 26, bmi = 21.6, status = BmiStatus.NORMAL),
+                        PatientListingRow(name = "John Doe", age = 30, bmi = 27.5, status = BmiStatus.OVERWEIGHT),
+                        PatientListingRow(name = "Alice Smith", age = 22, bmi = 17.2, status = BmiStatus.UNDERWEIGHT),
+                    ),
                 ),
+            ).collectAsLazyPagingItems()
+        PatientListingComponent(
+            uiState = PatientListingUiState(selectedDate = LocalDate(2026, 10, 12)),
+            items = items,
             onIntent = {},
         )
     }
@@ -264,28 +272,15 @@ private fun PatientListingScreenPreview_WithRows() {
 @Preview
 private fun PatientListingScreenPreview_EmptyState() {
     MaterialTheme {
+        val items = flowOf(PagingData.from(emptyList<PatientListingRow>())).collectAsLazyPagingItems()
         PatientListingComponent(
-            uiState =
-                PatientListingUiState(
-                    selectedDate = LocalDate(2026, 10, 12),
-                    rows = emptyList(),
-                ),
+            uiState = PatientListingUiState(selectedDate = LocalDate(2026, 10, 12)),
+            items = items,
             onIntent = {},
         )
     }
 }
 
-@Composable
-@Preview
-private fun PatientListingScreenPreview_LoadingState() {
-    MaterialTheme {
-        PatientListingComponent(
-            uiState =
-                PatientListingUiState(
-                    selectedDate = LocalDate(2026, 10, 12),
-                    isLoading = true,
-                ),
-            onIntent = {},
-        )
-    }
-}
+// No loading-state preview: a static flowOf(PagingData.from(...)) resolves its initial load
+// immediately, so there's no suspended state to render - LoadState.Loading is only reachable
+// against a real (or fake-but-slow) PagingSource, not previewable this way.
