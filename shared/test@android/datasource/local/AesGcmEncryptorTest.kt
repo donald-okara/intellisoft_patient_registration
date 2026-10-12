@@ -43,4 +43,22 @@ class AesGcmEncryptorTest {
 
             assertFalse(encrypted.contains("super-secret-token"))
         }
+
+    @Test
+    fun secretKeyProviderIsResolvedOnlyOnce() =
+        runTest {
+            var providerCallCount = 0
+            val countingEncryptor =
+                AesGcmEncryptor {
+                    providerCallCount++
+                    inMemoryKey
+                }
+
+            val first = countingEncryptor.encrypt("first-value")
+            val second = countingEncryptor.encrypt("second-value")
+            countingEncryptor.decrypt(first)
+            countingEncryptor.decrypt(second)
+
+            assertEquals(1, providerCallCount)
+        }
 }

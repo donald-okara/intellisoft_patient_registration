@@ -93,6 +93,18 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   migration was needed: `Retriable` just leaves `synced = false` (unchanged from before), and
   `NeedsAttention` deletes the local row immediately, synchronously, as part of the same write
   that discovered it.
+- **No paginated/chunked sync for large remote fetches.** `syncList`'s `remoteFetcher` is a
+  single-shot `() -> List<T>`, and `DefaultPatientRepository.sync()`'s `localUpsert` maps/
+  encrypts/writes that whole list in one pass — fine for this API (`patients/view` has no
+  cursor/paging contract to design against) but not something that would hold up against a
+  genuinely large remote dataset. If it needed to: stream pages through a cursor-based
+  `remoteFetcher`, chunk the Room `upsert` transaction per page, and only parallelize the
+  per-row PII encryption if profiling actually shows cipher cost (not DB/network I/O) as the
+  bottleneck — speculative plumbing against an API that doesn't support paging wasn't worth
+  building now. Related: `AesGcmEncryptor` previously re-resolved the AndroidKeyStore key on
+  every single `encrypt`/`decrypt` call rather than caching it, which would have made even a
+  single large fetch pay for N redundant keystore lookups — fixed independent of the paging
+  question, since it's wrong at any scale, not just a large one.
 - **No auto-requeue on re-authentication, and no edit-and-resubmit flow for a purged row** — two
   deliberate scope cuts, not oversights. A fresh sign-in does not silently resurrect a stale push
   behind the user's back; they resubmit, same as for a validation failure. That in turn means a

@@ -2,6 +2,8 @@ package ke.don.intellisoft_patient_registration.datasource.local
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
@@ -39,27 +41,34 @@ private fun androidKeystoreSecretKey(keyAlias: String): SecretKey {
  *
  * The key lookup is injectable (`internal`) so tests can supply a plain in-memory AES key -
  * `AndroidKeyStore` is a real-device/emulator security provider with no Robolectric shadow, so
- * tests exercise the AES/GCM + IV logic here without going through it.
+ * tests exercise the AES/GCM + IV logic here without going through it. `secretKeyProvider` is
+ * only ever invoked once (via `by lazy`) - calling it per `encrypt`/`decrypt` would mean a
+ * keystore round-trip per field, per row, on every list mapped through this (e.g. a patient
+ * listing fetch), rather than once per `AesGcmEncryptor` instance.
  */
 class AesGcmEncryptor internal constructor(
-    private val secretKeyProvider: () -> SecretKey,
+    secretKeyProvider: () -> SecretKey,
 ) : FieldEncryptor {
     constructor(keyAlias: String) : this({ androidKeystoreSecretKey(keyAlias) })
 
-    override suspend fun encrypt(plainText: String): String {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKeyProvider())
-        val ciphertext = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
-        return Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
-    }
+    private val secretKey: SecretKey by lazy { secretKeyProvider() }
 
-    override suspend fun decrypt(value: String): String {
-        val bytes = Base64.getDecoder().decode(value)
-        val iv = bytes.copyOfRange(0, GCM_IV_LENGTH_BYTES)
-        val ciphertext = bytes.copyOfRange(GCM_IV_LENGTH_BYTES, bytes.size)
+    override suspend fun encrypt(plainText: String): String =
+        withContext(Dispatchers.Default) {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+            val ciphertext = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
+            Base64.getEncoder().encodeToString(cipher.iv + ciphertext)
+        }
 
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, secretKeyProvider(), GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
-        return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
-    }
+    override suspend fun decrypt(value: String): String =
+        withContext(Dispatchers.Default) {
+            val bytes = Base64.getDecoder().decode(value)
+            val iv = bytes.copyOfRange(0, GCM_IV_LENGTH_BYTES)
+            val ciphertext = bytes.copyOfRange(GCM_IV_LENGTH_BYTES, bytes.size)
+
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
+            String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+        }
 }
