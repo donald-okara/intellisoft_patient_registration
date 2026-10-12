@@ -27,4 +27,18 @@ interface VitalsDao {
 
     @Query("SELECT * FROM VitalsEntity WHERE patientId = :patientId")
     fun findByPatientId(patientId: String): Flow<List<VitalsEntity>>
+
+    /** Keyed by the row's own id, not patientId - a patient can have many vitals rows. */
+    @Query("UPDATE VitalsEntity SET synced = :synced WHERE id = :id")
+    suspend fun markSynced(
+        id: Long,
+        synced: Boolean,
+    )
+
+    @Query("DELETE FROM VitalsEntity WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    /** Candidates for the periodic retry worker - a Retriable push failure leaves the row here. */
+    @Query("SELECT * FROM VitalsEntity WHERE synced = 0")
+    suspend fun findUnsynced(): List<VitalsEntity>
 }
