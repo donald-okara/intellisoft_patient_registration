@@ -26,11 +26,15 @@ class KoinModuleSmokeTest {
         listOf(httpClientModule, apiModule).verifyAll()
     }
 
-    /** TokenStorage is a Koin runtime parameter here, not a graph dependency - see authModule. */
+    /**
+     * TokenStorage is a Koin runtime parameter here, not a graph dependency - see authModule.
+     * httpClientModule/apiModule are included because authModule's AuthRepository binding needs
+     * AuthApi.
+     */
     @OptIn(KoinExperimentalAPI::class)
     @Test
     fun authModuleResolves() {
-        authModule.verify(
+        listOf(httpClientModule, apiModule, authModule).verifyAll(
             injections = injectedParameters(definition<CachedAuthTokenProvider>(TokenStorage::class)),
         )
     }
