@@ -1,6 +1,7 @@
 package ke.don.intellisoft_patient_registration.data.sync
 
 import androidx.sqlite.SQLiteException
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -111,5 +112,95 @@ class OfflineWriteResultTest {
                 )
 
             assertIs<OfflineWriteResult.Error>(result)
+        }
+
+    @Test
+    fun succeedsAfterATransientFailureWithinMaxAttempts() =
+        runTest {
+            var attempts = 0
+
+            val result =
+                offlineFirstWrite(
+                    localInsert = {},
+                    remotePush = {
+                        attempts++
+                        if (attempts < 2) PushOutcome.Retriable else PushOutcome.Synced
+                    },
+                    onPushSucceeded = {},
+                    onNeedsAttention = { error("should not be called") },
+                )
+
+            assertEquals(OfflineWriteResult.Success(synced = true), result)
+            assertEquals(2, attempts)
+        }
+
+    @Test
+    fun exhaustsMaxAttemptsThenFallsBackToUnsyncedSuccess() =
+        runTest {
+            var attempts = 0
+
+            val result =
+                offlineFirstWrite(
+                    localInsert = {},
+                    remotePush = {
+                        attempts++
+                        PushOutcome.Retriable
+                    },
+                    onPushSucceeded = { error("should not be called") },
+                    onNeedsAttention = { error("should not be called") },
+                    retryPolicy = RetryPolicy(maxAttempts = 3, initialDelayMs = 1_000, factor = 2.0),
+                )
+
+            assertEquals(OfflineWriteResult.Success(synced = false), result)
+            assertEquals(3, attempts)
+        }
+
+    @Test
+    fun waitsWithExponentialBackoffBetweenRetries() =
+        runTest {
+            offlineFirstWrite(
+                localInsert = {},
+                remotePush = { PushOutcome.Retriable },
+                onPushSucceeded = { error("should not be called") },
+                onNeedsAttention = { error("should not be called") },
+                retryPolicy = RetryPolicy(maxAttempts = 3, initialDelayMs = 1_000, factor = 2.0, maxDelayMs = 10_000),
+            )
+
+            // 1s before the 2nd attempt, 2s before the 3rd - no delay after the last attempt.
+            assertEquals(3_000, currentTime)
+        }
+
+    @Test
+    fun backoffDelayIsCappedAtMaxDelayMs() =
+        runTest {
+            offlineFirstWrite(
+                localInsert = {},
+                remotePush = { PushOutcome.Retriable },
+                onPushSucceeded = { error("should not be called") },
+                onNeedsAttention = { error("should not be called") },
+                retryPolicy = RetryPolicy(maxAttempts = 4, initialDelayMs = 1_000, factor = 10.0, maxDelayMs = 5_000),
+            )
+
+            // Uncapped would be 1s + 10s + 100s; capped it's 1s + 5s + 5s.
+            assertEquals(11_000, currentTime)
+        }
+
+    @Test
+    fun stopsRetryingImmediatelyOnceNeedsAttention() =
+        runTest {
+            var attempts = 0
+
+            offlineFirstWrite(
+                localInsert = {},
+                remotePush = {
+                    attempts++
+                    PushOutcome.NeedsAttention(NeedsAttentionReason.Unauthorized)
+                },
+                onPushSucceeded = { error("should not be called") },
+                onNeedsAttention = {},
+                retryPolicy = RetryPolicy(maxAttempts = 3),
+            )
+
+            assertEquals(1, attempts)
         }
 }
