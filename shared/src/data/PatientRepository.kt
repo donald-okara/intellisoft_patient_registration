@@ -4,6 +4,7 @@ import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import ke.don.intellisoft_patient_registration.data.sync.Syncable
 import ke.don.intellisoft_patient_registration.domain.Patient
 import ke.don.intellisoft_patient_registration.domain.PatientId
+import kotlinx.coroutines.flow.Flow
 
 sealed interface RegisterPatientResult {
     /**
@@ -31,13 +32,13 @@ interface PatientRepository : Syncable {
     /** Local-first: writes to Room, then attempts one remote push - see DefaultPatientRepository. */
     suspend fun registerPatient(patient: Patient): RegisterPatientResult
 
-    suspend fun getPatient(id: PatientId): Patient?
+    fun getPatient(id: PatientId): Flow<Patient?>
 
     /** [page] is zero-indexed; results are ordered most-recently-registered first. */
-    suspend fun getPatients(
+    fun getPatients(
         page: Int,
         pageSize: Int,
-    ): List<Patient>
+    ): Flow<List<Patient>>
 
     /** Re-pushes every unsynced patient - called by the periodic retry worker, not user-facing yet. */
     suspend fun retryUnsyncedPushes()

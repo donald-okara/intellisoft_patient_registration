@@ -2,6 +2,8 @@ package ke.don.intellisoft_patient_registration.data
 
 import ke.don.intellisoft_patient_registration.domain.Patient
 import ke.don.intellisoft_patient_registration.domain.PatientId
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 class FakePatientRepository : PatientRepository {
     var retryUnsyncedPushesCallCount = 0
@@ -10,12 +12,12 @@ class FakePatientRepository : PatientRepository {
     override suspend fun registerPatient(patient: Patient): RegisterPatientResult =
         error("not needed for this fake's tests")
 
-    override suspend fun getPatient(id: PatientId): Patient? = null
+    override fun getPatient(id: PatientId): Flow<Patient?> = flowOf(null)
 
-    override suspend fun getPatients(
+    override fun getPatients(
         page: Int,
         pageSize: Int,
-    ): List<Patient> = emptyList()
+    ): Flow<List<Patient>> = flowOf(emptyList())
 
     override suspend fun retryUnsyncedPushes() {
         retryUnsyncedPushesCallCount++

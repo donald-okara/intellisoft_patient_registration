@@ -14,6 +14,8 @@ import ke.don.intellisoft_patient_registration.datasource.local.PatientEntity
 import ke.don.intellisoft_patient_registration.datasource.remote.PatientApi
 import ke.don.intellisoft_patient_registration.domain.Patient
 import ke.don.intellisoft_patient_registration.domain.PatientId
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class DefaultPatientRepository(
     private val patientDao: PatientDao,
@@ -59,21 +61,19 @@ class DefaultPatientRepository(
         }
     }
 
-    override suspend fun getPatient(id: PatientId): Patient? =
-        patientDao.findByPatientId(id.value)?.let {
-            patientMapper.toDomain(it)
-        }
+    override fun getPatient(id: PatientId): Flow<Patient?> =
+        patientDao.findByPatientId(id.value).map { entity -> entity?.let { patientMapper.toDomain(it) } }
 
-    override suspend fun getPatients(
+    override fun getPatients(
         page: Int,
         pageSize: Int,
-    ): List<Patient> {
+    ): Flow<List<Patient>> {
         require(page >= 0) { "page must be >= 0, was $page" }
         require(pageSize > 0) { "pageSize must be > 0, was $pageSize" }
 
         return patientDao
             .findPage(limit = pageSize, offset = page * pageSize)
-            .map { patientMapper.toDomain(it) }
+            .map { entities -> entities.map { patientMapper.toDomain(it) } }
     }
 
     override suspend fun sync(): Boolean =

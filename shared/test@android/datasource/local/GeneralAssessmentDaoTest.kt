@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,7 +45,7 @@ class GeneralAssessmentDaoTest {
             val db = newDatabase()
 
             db.generalAssessmentDao().insert(assessment())
-            val found = db.generalAssessmentDao().findByPatientId("P1")
+            val found = db.generalAssessmentDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals(1, found.size)
