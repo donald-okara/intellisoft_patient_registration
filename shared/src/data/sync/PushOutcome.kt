@@ -3,6 +3,7 @@ package ke.don.intellisoft_patient_registration.data.sync
 import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.ServerResponseException
 import io.ktor.http.HttpStatusCode
+import ke.don.intellisoft_patient_registration.datasource.remote.apiErrorMessage
 
 /**
  * What a remote push actually needs the caller to do next - not every failure is the same.
@@ -41,9 +42,10 @@ suspend fun classifyPush(call: suspend () -> Boolean): PushOutcome =
         if (e.response.status == HttpStatusCode.Unauthorized) {
             PushOutcome.NeedsAttention(NeedsAttentionReason.Unauthorized)
         } else {
-            // e.message already carries Ktor's cached response text (see ClientRequestException) -
-            // re-reading e.response's body here would risk a double-receive on some engines.
-            val message = e.message ?: "Validation failed with status ${e.response.status}"
+            // apiErrorMessage() reads the server's own `message` field out of e's cached
+            // response text (see ClientRequestException) - re-reading e.response's body here
+            // would risk a double-receive on some engines.
+            val message = e.apiErrorMessage() ?: "Validation failed with status ${e.response.status}"
             PushOutcome.NeedsAttention(NeedsAttentionReason.ValidationFailed(message))
         }
     } catch (e: ServerResponseException) {

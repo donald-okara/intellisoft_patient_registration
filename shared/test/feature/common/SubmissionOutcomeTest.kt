@@ -1,10 +1,17 @@
 package ke.don.intellisoft_patient_registration.feature.common
 
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
 import ke.don.intellisoft_patient_registration.data.RegisterPatientResult
 import ke.don.intellisoft_patient_registration.data.SubmitGeneralAssessmentResult
 import ke.don.intellisoft_patient_registration.data.SubmitOverweightAssessmentResult
 import ke.don.intellisoft_patient_registration.data.SubmitVitalsResult
 import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
+import ke.don.intellisoft_patient_registration.datasource.remote.provideHttpClient
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -133,6 +140,30 @@ class SubmissionOutcomeTest {
 
         assertEquals("Something went wrong. Please try again.", SubmissionOutcome.Failed(cause).displayMessage)
     }
+
+    /** When `cause` carries a real server message, show that instead of the generic fallback. */
+    @Test
+    fun failedWithAParseableApiErrorDisplaysTheServersOwnMessage() =
+        runTest {
+            val client =
+                provideHttpClient(
+                    MockEngine {
+                        respond(
+                            content = """{"message":"Invalid email or password","success":false,"code":401}""",
+                            status = HttpStatusCode.Unauthorized,
+                        )
+                    },
+                )
+            val cause =
+                try {
+                    client.get("mock")
+                    error("MockEngine should have thrown")
+                } catch (e: ClientRequestException) {
+                    e
+                }
+
+            assertEquals("Invalid email or password", SubmissionOutcome.Failed(cause).displayMessage)
+        }
 
     @Test
     fun duplicateDisplaysItsOwnMessageAsIs() {
