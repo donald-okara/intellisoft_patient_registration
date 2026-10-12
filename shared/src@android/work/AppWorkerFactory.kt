@@ -5,6 +5,7 @@ import dev.brewkits.kmpworkmanager.background.domain.AndroidWorkerFactory
 import dev.brewkits.kmpworkmanager.background.domain.WorkerEnvironment
 import dev.brewkits.kmpworkmanager.background.domain.WorkerResult
 import ke.don.intellisoft_patient_registration.data.PatientRepository
+import ke.don.intellisoft_patient_registration.data.VitalsRepository
 
 /**
  * No real sync worker exists yet - that's the next phase, once there's a repository to call.
@@ -41,18 +42,40 @@ class RetryUnsyncedPatientsWorker(
 }
 
 /**
+ * Retries every VitalsEntity row left `synced = false` by a Retriable push failure - same shape
+ * as RetryUnsyncedPatientsWorker (see DefaultVitalsRepository.retryPush).
+ */
+class RetryUnsyncedVitalsWorker(
+    private val vitalsRepository: VitalsRepository,
+) : AndroidWorker {
+    override suspend fun doWork(
+        input: String?,
+        env: WorkerEnvironment,
+    ): WorkerResult {
+        vitalsRepository.retryUnsyncedPushes()
+        return WorkerResult.Success()
+    }
+
+    override fun close() = Unit
+}
+
+/**
  * Manual registry, not KSP-generated (`kmpworker-ksp` was skipped for this phase - see
  * DESIGN.md). Register each real worker here by the name passed to `enqueue(...)`.
- * [patientRepository] is optional so existing no-dependency callers (and the smoke test) don't
- * need one - real app wiring will always pass it once it exists.
+ * [patientRepository]/[vitalsRepository] are optional so existing no-dependency callers (and the
+ * smoke test) don't need one - real app wiring will always pass them once they exist.
  */
 class AppWorkerFactory(
     patientRepository: PatientRepository? = null,
+    vitalsRepository: VitalsRepository? = null,
     private val workers: Map<String, () -> AndroidWorker> =
         buildMap {
             put("NoOpWorker") { NoOpWorker() }
             if (patientRepository != null) {
                 put("RetryUnsyncedPatientsWorker") { RetryUnsyncedPatientsWorker(patientRepository) }
+            }
+            if (vitalsRepository != null) {
+                put("RetryUnsyncedVitalsWorker") { RetryUnsyncedVitalsWorker(vitalsRepository) }
             }
         },
 ) : AndroidWorkerFactory {

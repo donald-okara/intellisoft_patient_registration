@@ -75,4 +75,51 @@ class VitalsDaoTest {
 
             assertEquals(1, forP1.size)
         }
+
+    @Test
+    fun markSyncedUpdatesOnlyTheSyncedFlagForThatRow() =
+        runTest {
+            val db = newDatabase()
+            val id = db.vitalsDao().insert(vitals())
+
+            db.vitalsDao().markSynced(id, synced = true)
+            val found =
+                db
+                    .vitalsDao()
+                    .findByPatientId("P1")
+                    .first()
+                    .first()
+            db.close()
+
+            assertEquals(true, found.synced)
+            assertEquals(22.5, found.bmi)
+        }
+
+    @Test
+    fun deleteByIdRemovesOnlyThatRow() =
+        runTest {
+            val db = newDatabase()
+            val keptId = db.vitalsDao().insert(vitals(visitDate = "2025-10-30"))
+            val removedId = db.vitalsDao().insert(vitals(visitDate = "2025-10-31"))
+
+            db.vitalsDao().deleteById(removedId)
+            val remaining = db.vitalsDao().findByPatientId("P1").first()
+            db.close()
+
+            assertEquals(listOf(keptId), remaining.map { it.id })
+        }
+
+    @Test
+    fun findUnsyncedReturnsOnlyUnsyncedRows() =
+        runTest {
+            val db = newDatabase()
+            val syncedId = db.vitalsDao().insert(vitals(visitDate = "2025-10-30"))
+            db.vitalsDao().insert(vitals(visitDate = "2025-10-31"))
+            db.vitalsDao().markSynced(syncedId, synced = true)
+
+            val unsynced = db.vitalsDao().findUnsynced()
+            db.close()
+
+            assertEquals(listOf("2025-10-31"), unsynced.map { it.visitDate })
+        }
 }
