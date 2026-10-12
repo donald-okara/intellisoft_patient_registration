@@ -9,7 +9,9 @@ package ke.don.intellisoft_patient_registration.feature.common
 sealed interface Decision {
     data object Valid : Decision
 
-    data class Invalid(val reason: String) : Decision
+    data class Invalid(
+        val reason: String,
+    ) : Decision
 }
 
 /**

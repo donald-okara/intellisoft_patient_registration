@@ -6,13 +6,19 @@ import kotlin.test.assertEquals
 class DecisionTest {
     @Test
     fun validatorReturnsInvalidWithReasonForBlankValue() {
-        val validator = FieldValidator { value -> if (value.isBlank()) Decision.Invalid("Required") else Decision.Valid }
+        val validator =
+            FieldValidator { value ->
+                if (value.isBlank()) Decision.Invalid("Required") else Decision.Valid
+            }
         assertEquals(Decision.Invalid("Required"), validator.validate(""))
     }
 
     @Test
     fun validatorReturnsValidForNonBlankValue() {
-        val validator = FieldValidator { value -> if (value.isBlank()) Decision.Invalid("Required") else Decision.Valid }
+        val validator =
+            FieldValidator { value ->
+                if (value.isBlank()) Decision.Invalid("Required") else Decision.Valid
+            }
         assertEquals(Decision.Valid, validator.validate("x"))
     }
 }
