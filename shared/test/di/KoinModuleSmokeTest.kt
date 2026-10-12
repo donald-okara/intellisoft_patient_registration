@@ -34,4 +34,10 @@ class KoinModuleSmokeTest {
             injections = injectedParameters(definition<CachedAuthTokenProvider>(TokenStorage::class)),
         )
     }
+
+    @OptIn(KoinExperimentalAPI::class)
+    @Test
+    fun clockModuleResolves() {
+        clockModule.verify()
+    }
 }
