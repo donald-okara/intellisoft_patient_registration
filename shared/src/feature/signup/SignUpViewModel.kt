@@ -79,7 +79,8 @@ class SignUpViewModel(
             }
 
             is SignUpIntent.SignInClicked -> {
-                navigator.goTo(Route.SignIn)
+                // Same rationale as SignInViewModel's equivalent branch - see that file.
+                navigator.replaceAllWith(Route.SignIn)
             }
         }
     }

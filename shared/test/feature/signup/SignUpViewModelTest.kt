@@ -63,6 +63,18 @@ class SignUpViewModelTest {
             assertEquals("Required", viewModel.uiState.value.email.errorMessage)
         }
 
+    /** Same rationale as SignInViewModelTest's equivalent test - see that file for the full why. */
+    @Test
+    fun signInClickedReplacesTheBackStackSoReturningToSignUpLaterStartsFresh() =
+        runTest(testDispatcher) {
+            val navigator = Navigator(Route.SignUp)
+            val viewModel = SignUpViewModel(FakeAuthRepository(), navigator)
+
+            viewModel.onIntent(SignUpIntent.SignInClicked)
+
+            assertEquals(listOf(Route.SignIn), navigator.backStack.toList())
+        }
+
     @Test
     fun emailAlreadyRegisteredSurfacesAsADuplicateSubmissionOutcomeAndDoesNotNavigate() =
         runTest(testDispatcher) {

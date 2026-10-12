@@ -61,7 +61,11 @@ class SignInViewModel(
             }
 
             is SignInIntent.SignUpClicked -> {
-                navigator.goTo(Route.SignUp)
+                // replaceAllWith, not goTo: Route.SignIn/SignUp are singleton `data object`s, so
+                // Nav3 keys ViewModel storage by that key regardless of back-stack position -
+                // goTo would leave this (possibly errored) SignIn entry sitting in the stack and
+                // resume the same stale ViewModel on the way back instead of a fresh one.
+                navigator.replaceAllWith(Route.SignUp)
             }
         }
     }

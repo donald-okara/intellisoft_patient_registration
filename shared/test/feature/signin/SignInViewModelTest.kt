@@ -61,6 +61,24 @@ class SignInViewModelTest {
             assertEquals("Required", viewModel.uiState.value.email.errorMessage)
         }
 
+    /**
+     * SignUp must be pushed via replaceAllWith, not goTo - Route.SignIn/SignUp are singleton
+     * `data object`s, so Nav3's ViewModelStoreNavEntryDecorator keys ViewModel storage by that
+     * same key regardless of position. goTo would leave the old SignIn entry (and its
+     * ViewModelStore) sitting in the back stack, so bouncing back to it later would resume the
+     * same stale SignInViewModel - and its stale submissionOutcome - rather than a fresh one.
+     */
+    @Test
+    fun signUpClickedReplacesTheBackStackSoReturningToSignInLaterStartsFresh() =
+        runTest(testDispatcher) {
+            val navigator = Navigator(Route.SignIn)
+            val viewModel = SignInViewModel(FakeAuthRepository(), navigator)
+
+            viewModel.onIntent(SignInIntent.SignUpClicked)
+
+            assertEquals(listOf(Route.SignUp), navigator.backStack.toList())
+        }
+
     @Test
     fun invalidCredentialsSurfacesAsADuplicateSubmissionOutcomeAndDoesNotNavigate() =
         runTest(testDispatcher) {
