@@ -1,6 +1,6 @@
 # Auth Sign-In Flow Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build the sign-up/sign-in screens, a startup auth check, and sign-out, so the app
 sends a real `Authorization` header on every API call instead of none at all (its current state).
@@ -90,7 +90,7 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   ```
   Consumed by Task 6's `SignInViewModel` and Task 7's `SignUpViewModel`.
 
-- [ ] **Step 1: Write `FakeAuthApi`** (`shared/test/data/FakeAuthApi.kt`), mirroring
+- [x] **Step 1: Write `FakeAuthApi`** (`shared/test/data/FakeAuthApi.kt`), mirroring
   `FakePatientApi`'s shape:
   ```kotlin
   class FakeAuthApi(
@@ -105,7 +105,7 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
       override suspend fun signup(request: SignupRequestDto) = signupResponse(request)
   }
   ```
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
   ```kotlin
   class DefaultAuthRepositoryTest {
       @Test
@@ -156,8 +156,8 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   simpler - either way, this task also creates a minimal `FakeTokenStorage`
   (`shared/test/data/FakeTokenStorage.kt`: an in-memory `MutableMap`-backed `TokenStorage`, reused
   by Task 2's `SplashViewModelTest` too).
-- [ ] **Step 3: Run tests to verify they fail.**
-- [ ] **Step 4: Implement `AuthResult.kt`** (the two sealed interfaces above) and
+- [x] **Step 3: Run tests to verify they fail.**
+- [x] **Step 4: Implement `AuthResult.kt`** (the two sealed interfaces above) and
   `AuthRepository.kt`. `DefaultAuthRepository.signIn` calls `authApi.signin(SigninRequestDto(email,
   password))`, and on success calls `cachedAuthTokenProvider.setToken(response.data.accessToken)`
   before returning `Authenticated`. Catches mirror `classifyPush`'s shape: `ClientRequestException`
@@ -166,8 +166,8 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   else `ServerResponseException`/`IOException` → `Error(cause)`. Explicitly rethrow
   `CancellationException` in both methods' catch blocks, matching `offlineFirstWrite`'s
   convention.
-- [ ] **Step 5: Run tests to verify they pass.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 5: Run tests to verify they pass.**
+- [x] **Step 6: Commit.**
 
 ---
 
@@ -190,7 +190,7 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   `single<TokenStorage> { KeychainTokenStorage() }`) - consumed by Task 3's
   `PatientRegistrationApp.onCreate()` change.
 
-- [ ] **Step 1: Implement `buildTokenDataStore`** in the new Android file, following
+- [x] **Step 1: Implement `buildTokenDataStore`** in the new Android file, following
   `EncryptedTokenStorageTest`'s own production-equivalent shape:
   ```kotlin
   fun buildTokenDataStore(context: Context): DataStore<Preferences> =
@@ -200,7 +200,7 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   ```
   (No test for this one-liner - it's exercised end-to-end by Task 2.1's own Koin verify test
   below, same rationale `buildAppDatabase` already has no standalone test.)
-- [ ] **Step 2: Implement `tokenStorageModule`** (Android):
+- [x] **Step 2: Implement `tokenStorageModule`** (Android):
   ```kotlin
   val tokenStorageModule =
       module {
@@ -210,7 +210,7 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
       }
   ```
   and (iOS): `val tokenStorageModule = module { single<TokenStorage> { KeychainTokenStorage() } }`.
-- [ ] **Step 3: Add a verify test to `AndroidKoinModuleTest`**:
+- [x] **Step 3: Add a verify test to `AndroidKoinModuleTest`**:
   ```kotlin
   private val tokenStorageInjections =
       injectedParameters(definition<EncryptedTokenStorage>(FieldEncryptor::class))
@@ -223,8 +223,8 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   ```
   (Same blind-spot rationale as `mapperInjections` - `verify()` can't see the qualified `get()`
   call inside the lambda body.)
-- [ ] **Step 4: Run `./kotlin test -p android`.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 4: Run `./kotlin test -p android`.**
+- [x] **Step 5: Commit.**
 
 ---
 
@@ -244,17 +244,17 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   (for Task 8's sign-out) and `AuthTokenProvider` (for `httpClientModule`), from the point
   `PatientRegistrationApp.onCreate()` finishes its rebind - consumed by every later task.
 
-- [ ] **Step 1: Add `bind AuthTokenProvider::class`** to `authModule`'s existing single:
+- [x] **Step 1: Add `bind AuthTokenProvider::class`** to `authModule`'s existing single:
   ```kotlin
   val authModule =
       module {
           single { (tokenStorage: TokenStorage) -> CachedAuthTokenProvider(tokenStorage) } bind AuthTokenProvider::class
       }
   ```
-- [ ] **Step 2: Update `KoinModuleSmokeTest.authModuleResolves`** - no behavior change to the
+- [x] **Step 2: Update `KoinModuleSmokeTest.authModuleResolves`** - no behavior change to the
   test itself, just confirm it still passes after Step 1 (the `bind` clause doesn't change what
   `verify()` checks here).
-- [ ] **Step 3: Rewrite `PatientRegistrationApp.onCreate()`'s eager-resolve block.** This is the
+- [x] **Step 3: Rewrite `PatientRegistrationApp.onCreate()`'s eager-resolve block.** This is the
   one exact-ordering change the Review Focus section calls out - the auth rebind must complete in
   its own `loadModules` call *before* any repository is resolved, because resolving a repository
   transitively forces `HttpClient` to resolve, which needs `AuthTokenProvider` to already be
@@ -294,13 +294,13 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   Also add `tokenStorageModule` to the original `startKoin { modules(...) }` list (alongside
   `httpClientModule`, `apiModule`, `authModule`, etc. - `authModule` and `httpClientModule` are
   already there from earlier phases).
-- [ ] **Step 4:** No new automated test (same documented status as the rest of
+- [x] **Step 4:** No new automated test (same documented status as the rest of
   `PatientRegistrationApp` - this is exactly the ordering the Review Focus section explains why
   no test would catch if wrong). Verify by running the app once real device/emulator access
   exists (tracked in Phase 9); until then, rely on the reasoning above and a careful reread of
   this diff during review.
-- [ ] **Step 5: Run `./kotlin build -m androidApp` to confirm it still compiles.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 5: Run `./kotlin build -m androidApp` to confirm it still compiles.**
+- [x] **Step 6: Commit.**
 
 ---
 
@@ -316,13 +316,13 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
 - Produces: `Route.Splash`, `Route.SignIn`, `Route.SignUp` (all `data object`, no payload) added
   to the existing `Route` sealed interface - consumed by Tasks 5-8.
 
-- [ ] **Step 1: Add the three `data object` entries** to `Route` in `Route.kt`.
-- [ ] **Step 2: Change `navigationModule`'s `Navigator(startDestination = ...)`** from
+- [x] **Step 1: Add the three `data object` entries** to `Route` in `Route.kt`.
+- [x] **Step 2: Change `navigationModule`'s `Navigator(startDestination = ...)`** from
   `Route.PatientRegistration` to `Route.Splash`.
-- [ ] **Step 3:** No new test (`Route` itself has none today either - exercised by `NavigatorTest`
+- [x] **Step 3:** No new test (`Route` itself has none today either - exercised by `NavigatorTest`
   and whichever ViewModel test references a given route). Run `./kotlin test -p android` to
   confirm nothing else assumed the old start destination.
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ---
 
@@ -341,7 +341,7 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   private val navigator: Navigator) : ViewModel()` - no public state beyond the navigation side
   effect; consumed by Task 5.2's screen only for construction via Koin.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
   ```kotlin
   class SplashViewModelTest {
       @Test
@@ -369,12 +369,12 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   (Reuses `FakeTokenStorage` from Task 1.1. `advanceUntilIdle()` needs the same
   `UnconfinedTestDispatcher`-on-Main setup `PatientListingViewModelTest` already uses for a
   `viewModelScope.launch` to actually run inside `runTest`.)
-- [ ] **Step 2: Run tests to verify they fail.**
-- [ ] **Step 3: Implement.** `init { viewModelScope.launch { cachedAuthTokenProvider.hydrate();
+- [x] **Step 2: Run tests to verify they fail.**
+- [x] **Step 3: Implement.** `init { viewModelScope.launch { cachedAuthTokenProvider.hydrate();
   navigator.replaceAllWith(if (cachedAuthTokenProvider.currentToken() != null)
   Route.PatientListing() else Route.SignIn) } }`.
-- [ ] **Step 4: Run tests to verify they pass.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 4: Run tests to verify they pass.**
+- [x] **Step 5: Commit.**
 
 ### Task 5.2: `SplashScreen` + `AppNavHost`/`ViewModelModule` wiring
 
@@ -383,20 +383,20 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
 - Modify: `shared/src/navigation/AppNavHost.kt`
 - Modify: `shared/src/di/ViewModelModule.kt`
 
-- [ ] **Step 1: Implement `SplashScreen(viewModel: SplashViewModel)`** - a single centered
+- [x] **Step 1: Implement `SplashScreen(viewModel: SplashViewModel)`** - a single centered
   `CircularProgressIndicator` inside `AppScreenColumn` (or a bare `Box`, implementer's call -
   there's no form content and nothing to preview meaningfully beyond the one visual state). The
   `viewModel` parameter is required even though the screen reads no state from it - injecting it
   via Koin inside the Compose tree is what constructs `SplashViewModel` and runs its `init{}`
   (the hydrate-then-navigate logic) in the first place; a parameterless `SplashScreen()` would
   never construct the ViewModel at all.
-- [ ] **Step 2: Add `entry<Route.Splash> { SplashScreen(viewModel = koinViewModel {
+- [x] **Step 2: Add `entry<Route.Splash> { SplashScreen(viewModel = koinViewModel {
   parametersOf(navigator) }) }`** to `AppNavHost` (matching every other entry's
   `parametersOf(navigator, ...)` call style) and `viewModelOf(::SplashViewModel)` to
   `viewModelModule`.
-- [ ] **Step 3:** No new test (Compose wiring, same rationale as every other screen's own
+- [x] **Step 3:** No new test (Compose wiring, same rationale as every other screen's own
   wiring task in this project). Run `./kotlin build -m androidApp`.
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ---
 
@@ -418,11 +418,11 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
   FieldState`, `val submissionOutcome: StateFlow<SubmissionOutcome?>`, `fun onSubmit()`, `fun
   onSignUpClicked()`.
 
-- [ ] **Step 1: Create `FakeAuthRepository`** (`shared/test/data/FakeAuthRepository.kt`): a
+- [x] **Step 1: Create `FakeAuthRepository`** (`shared/test/data/FakeAuthRepository.kt`): a
   settable `signInResult: SignInResult`/`signUpResult: SignUpResult` pair (default
   `Authenticated`/`AccountCreated`), capturing the last submitted email/password for assertion -
   same shape as every other `Fake*Repository` in this project.
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
   ```kotlin
   class SignInViewModelTest {
       @Test
@@ -464,14 +464,14 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
       }
   }
   ```
-- [ ] **Step 3: Run tests to verify they fail.**
-- [ ] **Step 4: Implement.** `onSubmit()` touches both fields, returns early if either
+- [x] **Step 3: Run tests to verify they fail.**
+- [x] **Step 4: Implement.** `onSubmit()` touches both fields, returns early if either
   `!isValid`, else calls `authRepository.signIn(email.value, password.value)`; maps
   `Authenticated` → `navigator.replaceAllWith(Route.PatientListing())`, `InvalidCredentials` →
   `submissionOutcome.value = SubmissionOutcome.Duplicate("Invalid email or password.")`, `Error`
   → `SubmissionOutcome.Failed(cause)`. `onSignUpClicked()` calls `navigator.goTo(Route.SignUp)`.
-- [ ] **Step 5: Run tests to verify they pass.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 5: Run tests to verify they pass.**
+- [x] **Step 6: Commit.**
 
 ### Task 6.2: `SignInScreen` + `AppNavHost`/`ViewModelModule` wiring
 
@@ -480,18 +480,18 @@ kotlinx.datetime, Ktor 3.6.0 (`expectSuccess = true`).
 - Modify: `shared/src/navigation/AppNavHost.kt`
 - Modify: `shared/src/di/ViewModelModule.kt`
 
-- [ ] **Step 1: Implement** using the existing `FormScreenColumn`/`FieldStateOutlinedTextField`/
+- [x] **Step 1: Implement** using the existing `FormScreenColumn`/`FieldStateOutlinedTextField`/
   `SubmissionOutcomeCard` segments (`feature.common`) the four existing forms already share - two
   text fields (email, password - `visualTransformation = PasswordVisualTransformation()` on the
   password field), a submit button, a "Don't have an account? Sign up" text button calling
   `onSignUpClicked`. Add `@Preview` composables per the standing instruction from the prior
   session (valid state, missing-field state, invalid-credentials state).
-- [ ] **Step 2: Add `entry<Route.SignIn> { SignInScreen(viewModel = koinViewModel {
+- [x] **Step 2: Add `entry<Route.SignIn> { SignInScreen(viewModel = koinViewModel {
   parametersOf(navigator) }) }`** to `AppNavHost` (matching every other entry's
   `parametersOf(navigator, ...)` call style) and `viewModelOf(::SignInViewModel)` to
   `viewModelModule`.
-- [ ] **Step 3:** No new test (Compose wiring). Run `./kotlin build -m androidApp`.
-- [ ] **Step 4: Commit.**
+- [x] **Step 3:** No new test (Compose wiring). Run `./kotlin build -m androidApp`.
+- [x] **Step 4: Commit.**
 
 ---
 
@@ -511,20 +511,20 @@ Mirrors Phase 6 exactly, swapping in `signUp`/`SignUpResult`/`Route.SignUp`.
   FieldState`, `val lastname: FieldState`, `val password: FieldState`, `val submissionOutcome:
   StateFlow<SubmissionOutcome?>`, `fun onSubmit()`, `fun onSignInClicked()`.
 
-- [ ] **Step 1: Write the failing tests** (same three-case shape as Task 6.1's test, using
+- [x] **Step 1: Write the failing tests** (same three-case shape as Task 6.1's test, using
   `FakeAuthRepository`):
   - `onSubmitWithAllFieldsValidNavigatesToSignIn` - asserts `navigator.backStack` ends in
     `Route.SignIn` after `AccountCreated` (via `replaceAllWith`, since an abandoned sign-up
     shouldn't be reachable via back from Sign In).
   - `onSubmitWithAMissingFieldDoesNotCallTheRepositoryAndTouchesEveryField`.
   - `emailAlreadyRegisteredSurfacesAsADuplicateSubmissionOutcomeAndDoesNotNavigate`.
-- [ ] **Step 2: Run tests to verify they fail.**
-- [ ] **Step 3: Implement.** Same shape as `SignInViewModel.onSubmit()`, four fields instead of
+- [x] **Step 2: Run tests to verify they fail.**
+- [x] **Step 3: Implement.** Same shape as `SignInViewModel.onSubmit()`, four fields instead of
   two, `AccountCreated` → `navigator.replaceAllWith(Route.SignIn)`, `EmailAlreadyRegistered` →
   `SubmissionOutcome.Duplicate("This email is already registered.")`, `Error` →
   `SubmissionOutcome.Failed(cause)`. `onSignInClicked()` calls `navigator.goTo(Route.SignIn)`.
-- [ ] **Step 4: Run tests to verify they pass.**
-- [ ] **Step 5: Commit.**
+- [x] **Step 4: Run tests to verify they pass.**
+- [x] **Step 5: Commit.**
 
 ### Task 7.2: `SignUpScreen` + `AppNavHost`/`ViewModelModule` wiring
 
@@ -533,12 +533,12 @@ Mirrors Phase 6 exactly, swapping in `signUp`/`SignUpResult`/`Route.SignUp`.
 - Modify: `shared/src/navigation/AppNavHost.kt`
 - Modify: `shared/src/di/ViewModelModule.kt`
 
-- [ ] Implement the four-field form (same reused segments as Task 6.2) plus a "Already have an
+- [x] Implement the four-field form (same reused segments as Task 6.2) plus a "Already have an
   account? Sign in" text button calling `onSignInClicked`, with `@Preview`s. Add
   `entry<Route.SignUp> { SignUpScreen(viewModel = koinViewModel { parametersOf(navigator) }) }`
   to `AppNavHost` (same `parametersOf(navigator, ...)` style as every other entry) and
   `viewModelOf(::SignUpViewModel)` to `viewModelModule`.
-- [ ] Commit.
+- [x] Commit.
 
 ---
 
@@ -559,7 +559,7 @@ Mirrors Phase 6 exactly, swapping in `signUp`/`SignUpResult`/`Route.SignUp`.
 - Produces: `PatientListingViewModel` constructor gains `cachedAuthTokenProvider:
   CachedAuthTokenProvider`; `PatientListingIntent` gains `data object SignOutClicked`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
   ```kotlin
   @Test
   fun signOutClickedClearsTheTokenAndNavigatesToSignIn() = runTest {
@@ -577,16 +577,16 @@ Mirrors Phase 6 exactly, swapping in `signUp`/`SignUpResult`/`Route.SignUp`.
   (Existing tests in this file need their `PatientListingViewModel(...)` constructor calls updated
   with a fourth `CachedAuthTokenProvider` argument - a `FakeTokenStorage()`-backed one with no
   saved token is enough for the three pre-existing tests, which don't exercise sign-out.)
-- [ ] **Step 2: Run tests to verify the new one fails.**
-- [ ] **Step 3: Implement.** Add the constructor param; `onIntent`'s `when` gains
+- [x] **Step 2: Run tests to verify the new one fails.**
+- [x] **Step 3: Implement.** Add the constructor param; `onIntent`'s `when` gains
   `PatientListingIntent.SignOutClicked -> viewModelScope.launch {
   cachedAuthTokenProvider.clearToken(); navigator.replaceAllWith(Route.SignIn) }`.
-- [ ] **Step 4: Run tests to verify they pass.**
-- [ ] **Step 5: Add a sign-out icon** to `PatientListingScreen`'s `AppScreenColumn` (e.g. an
+- [x] **Step 4: Run tests to verify they pass.**
+- [x] **Step 5: Add a sign-out icon** to `PatientListingScreen`'s `AppScreenColumn` (e.g. an
   `IconButton` with a logout icon in the title bar area) calling
   `onIntent(PatientListingIntent.SignOutClicked)`. No new test (Compose wiring).
-- [ ] **Step 6: Run `./kotlin test -p android`.**
-- [ ] **Step 7: Commit.**
+- [x] **Step 6: Run `./kotlin test -p android`.**
+- [x] **Step 7: Commit.**
 
 ---
 
