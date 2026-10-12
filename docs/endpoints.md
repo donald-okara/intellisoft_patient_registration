@@ -488,15 +488,48 @@ collection. Trust the collection (and this document) over the PDF prose:
 | `GET visits/add` | `POST visits/add` |
 | `POST visits/view` (requires visit date) | matches — `POST visits/view` |
 
+## Confirmed flaws to raise with the interviewers
+
+Live-tested against the real server on 2026-10-12 (signup → signin → register → add vitals →
+add visit), not just inferred from the collection. Resolves some of the open questions below
+with hard evidence — kept as a separate section since these are backend defects to flag, not
+something fixable from the client side alone.
+
+1. **`vital/add`/`visits/add`'s `patient_id` must be the server's internal numeric `id`, which
+   `patients/register` never returns.** Registering a patient responds with only
+   `{"proceed": 0, "message": "Patient Added successfully"}` — no id, numeric or otherwise.
+   Sending the client-supplied `unique` value as `patient_id` (the obvious reading of "patient
+   id" given the field name) doesn't fail validation — it 500s with a raw, unhandled SQL
+   exception: `SQLSTATE[HY000]: General error: 1366 Incorrect integer value: 'audit-uuid-0001'
+   for column 'patient_id'`, and the full response body is a Laravel stack trace (internal file
+   paths, table/column names, query text). Two separate problems in one: (a) there is no
+   documented way to learn the numeric id after registering — the only path is a follow-up
+   `GET patients/view` scoped to the current user, scanning for the matching `unique`; (b) a
+   client type mistake on this field should be a clean 4xx, not a 500 that leaks internals.
+2. **`visits/add` requires *both* `on_diet` and `on_drugs`, contradicting its own
+   single-endpoint-for-two-forms shape.** Submitting only `on_diet` (as the General Assessment
+   form would) returns `422 {"message":"The given data was invalid.","errors":{"on_drugs":
+   ["The on drugs field is required."]}}`; submitting only `on_drugs` (Overweight) gets the
+   mirror-image error on `on_diet`. An empty string for the missing field doesn't satisfy it
+   either — only a real `"Yes"`/`"No"` does. As documented, **both assessment forms are
+   unusable** against the live server, since the UI only ever has one of the two answers to
+   give. (This is the exact "The given data was Invalid" error reported from the General
+   Assessment form.)
+3. **`patients/show/{id}` does not wrap its record in a one-element array.** Live response has
+   `data` as a plain JSON object (`{"id": 13, "unique": "...", ...}`), not the array this
+   document previously claimed based on the collection's example. Either the collection's
+   example was wrong, or server behavior changed since it was authored — either way, don't
+   trust that example without a live check.
+4. **No refresh-token endpoint exists** — reconfirmed live, not just absent from the
+   collection: `POST user/refresh`, `user/refresh-token`, `auth/refresh`, and `refresh` all
+   404. An invalid/expired token gets a plain `401 {"message":"Unauthenticated."}` with nothing
+   to recover from except signing in again. This drives the sign-in flow's design: a 401 on any
+   Bearer-protected call has to send the user back to Sign In, not attempt a silent refresh.
+
 ## Open questions to raise in the live session
 
-- Does `visits/add` truly accept `on_diet` and `on_drugs` in the same call for both form
-  types, or should the client only send the field relevant to the active form?
 - `patients/register`'s and `vital/add`'s `data.proceed` field — its meaning (success flag?
   dedupe signal?) isn't documented; confirm before relying on it for duplicate-patient
   detection.
 - Whether `visits/view` is in fact the Patient Listing data source (given its response shape)
   despite being documented as a per-patient visit history.
-- Confirm there's genuinely no refresh-token endpoint (not just an undocumented one in the
-  collection) — it drives the sign-in flow's design: a 401 on any Bearer-protected call has to
-  send the user back to a sign-in screen, not attempt a silent token refresh.
