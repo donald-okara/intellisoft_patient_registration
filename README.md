@@ -84,15 +84,15 @@ mocked API.
 
 Per the assignment brief — not yet satisfied by this skeleton:
 
-- [ ] Git history spanning at least two working sessions (incremental commits, not one bulk
+- [x] Git history spanning at least two working sessions (incremental commits, not one bulk
       commit)
 - [x] Screen recording (<5 min) of the full flow: registration → vitals → assessment →
       listing filter — [`assets/part_1.mp4`](assets/part_1.mp4) +
       [`assets/part_2.mp4`](assets/part_2.mp4) (split in two; see
       [`assets/README.md`](assets/README.md) for why)
-- [ ] Unit tests: BMI calc/classification, form validation, Room DAO, repository (faked/mocked
+- [x] Unit tests: BMI calc/classification, form validation, Room DAO, repository (faked/mocked
       API)
-- [ ] `DESIGN.md` (max one page): 2–3 key design decisions and why; what was deliberately
+- [x] `DESIGN.md` (max one page): 2–3 key design decisions and why; what was deliberately
       simplified or left out
 
 ## Learn more
