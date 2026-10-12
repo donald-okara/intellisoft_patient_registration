@@ -4,6 +4,7 @@ import dev.brewkits.kmpworkmanager.background.domain.ScheduleResult
 import dev.brewkits.kmpworkmanager.background.domain.WorkerEnvironment
 import dev.brewkits.kmpworkmanager.background.domain.enqueueOneTime
 import dev.brewkits.kmpworkmanager.testing.FakeBackgroundTaskScheduler
+import ke.don.intellisoft_patient_registration.data.FakeGeneralAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.FakePatientRepository
 import ke.don.intellisoft_patient_registration.data.FakeVitalsRepository
 import kotlinx.coroutines.test.runTest
@@ -78,6 +79,27 @@ class WorkSchedulingSmokeTest {
         runTest {
             val repository = FakeVitalsRepository()
             val worker = RetryUnsyncedVitalsWorker(repository)
+
+            worker.doWork(input = null, env = WorkerEnvironment())
+
+            assertEquals(1, repository.retryUnsyncedPushesCallCount)
+        }
+
+    @Test
+    fun factoryResolvesRetryUnsyncedGeneralAssessmentsWorkerWhenGivenARepository() =
+        runTest {
+            val factory = AppWorkerFactory(generalAssessmentRepository = FakeGeneralAssessmentRepository())
+
+            val worker = factory.createWorker("RetryUnsyncedGeneralAssessmentsWorker")
+
+            assertTrue(worker is RetryUnsyncedGeneralAssessmentsWorker)
+        }
+
+    @Test
+    fun retryUnsyncedGeneralAssessmentsWorkerCallsTheRepository() =
+        runTest {
+            val repository = FakeGeneralAssessmentRepository()
+            val worker = RetryUnsyncedGeneralAssessmentsWorker(repository)
 
             worker.doWork(input = null, env = WorkerEnvironment())
 

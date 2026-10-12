@@ -63,4 +63,51 @@ class GeneralAssessmentDaoTest {
             }
             db.close()
         }
+
+    @Test
+    fun markSyncedUpdatesOnlyTheSyncedFlagForThatRow() =
+        runTest {
+            val db = newDatabase()
+            val id = db.generalAssessmentDao().insert(assessment())
+
+            db.generalAssessmentDao().markSynced(id, synced = true)
+            val found =
+                db
+                    .generalAssessmentDao()
+                    .findByPatientId("P1")
+                    .first()
+                    .first()
+            db.close()
+
+            assertEquals(true, found.synced)
+            assertEquals("GOOD", found.generalHealth)
+        }
+
+    @Test
+    fun deleteByIdRemovesOnlyThatRow() =
+        runTest {
+            val db = newDatabase()
+            val keptId = db.generalAssessmentDao().insert(assessment(visitDate = "2025-10-30"))
+            val removedId = db.generalAssessmentDao().insert(assessment(visitDate = "2025-10-31"))
+
+            db.generalAssessmentDao().deleteById(removedId)
+            val remaining = db.generalAssessmentDao().findByPatientId("P1").first()
+            db.close()
+
+            assertEquals(listOf(keptId), remaining.map { it.id })
+        }
+
+    @Test
+    fun findUnsyncedReturnsOnlyUnsyncedRows() =
+        runTest {
+            val db = newDatabase()
+            val syncedId = db.generalAssessmentDao().insert(assessment(visitDate = "2025-10-30"))
+            db.generalAssessmentDao().insert(assessment(visitDate = "2025-10-31"))
+            db.generalAssessmentDao().markSynced(syncedId, synced = true)
+
+            val unsynced = db.generalAssessmentDao().findUnsynced()
+            db.close()
+
+            assertEquals(listOf("2025-10-31"), unsynced.map { it.visitDate })
+        }
 }

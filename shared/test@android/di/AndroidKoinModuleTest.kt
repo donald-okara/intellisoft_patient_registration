@@ -1,5 +1,6 @@
 package ke.don.intellisoft_patient_registration.di
 
+import ke.don.intellisoft_patient_registration.data.mapper.GeneralAssessmentMapper
 import ke.don.intellisoft_patient_registration.data.mapper.PatientMapper
 import ke.don.intellisoft_patient_registration.datasource.local.FieldEncryptor
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -28,12 +29,15 @@ class AndroidKoinModuleTest {
     }
 
     /**
-     * verify() reflects PatientMapper's constructor by raw type, blind to the piiEncryptorQualifier
+     * verify() reflects each mapper's constructor by raw type, blind to the piiEncryptorQualifier
      * actually passed in mapperModule - telling it to treat FieldEncryptor as externally supplied
      * avoids a false failure on a (real, qualified) binding it can't see.
      */
     private val mapperInjections =
-        injectedParameters(definition<PatientMapper>(FieldEncryptor::class))
+        injectedParameters(
+            definition<PatientMapper>(FieldEncryptor::class),
+            definition<GeneralAssessmentMapper>(FieldEncryptor::class),
+        )
 
     @OptIn(KoinExperimentalAPI::class)
     @Test
