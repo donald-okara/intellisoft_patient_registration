@@ -31,15 +31,7 @@ fun SubmissionOutcomeCard(
         exit = fadeOut() + shrinkVertically(),
         modifier = modifier,
     ) {
-        val errorMessage =
-            when (outcome) {
-                is SubmissionOutcome.Duplicate -> outcome.message
-                is SubmissionOutcome.Failed -> outcome.cause.message ?: "An unexpected error occurred."
-                is SubmissionOutcome.NeedsAttention -> "Action required: ${outcome.reason}"
-                else -> null
-            }
-
-        errorMessage?.let { message ->
+        outcome.displayMessage?.let { message ->
             Card(
                 colors =
                     CardDefaults.cardColors(

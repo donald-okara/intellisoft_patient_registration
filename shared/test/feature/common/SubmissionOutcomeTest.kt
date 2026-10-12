@@ -7,6 +7,7 @@ import ke.don.intellisoft_patient_registration.data.SubmitVitalsResult
 import ke.don.intellisoft_patient_registration.data.sync.NeedsAttentionReason
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class SubmissionOutcomeTest {
     // --- RegisterPatientResult: Duplicate message is patient-specific, the logic under test. ---
@@ -122,5 +123,39 @@ class SubmissionOutcomeTest {
             SubmissionOutcome.Failed(cause),
             SubmitOverweightAssessmentResult.Error(cause).toSubmissionOutcome(),
         )
+    }
+
+    // --- displayMessage: never leaks a raw exception/enum toString to the user. ---
+
+    @Test
+    fun failedDisplaysAGenericMessageNotTheRawExceptionText() {
+        val cause = RuntimeException("Client request(POST https://host/api/user/signin) invalid: 401 Unauthorized.")
+
+        assertEquals("Something went wrong. Please try again.", SubmissionOutcome.Failed(cause).displayMessage)
+    }
+
+    @Test
+    fun duplicateDisplaysItsOwnMessageAsIs() {
+        assertEquals("already registered", SubmissionOutcome.Duplicate("already registered").displayMessage)
+    }
+
+    @Test
+    fun needsAttentionUnauthorizedDisplaysAFriendlyMessage() {
+        val outcome = SubmissionOutcome.NeedsAttention(NeedsAttentionReason.Unauthorized)
+
+        assertEquals("Your session has expired. Please sign in again.", outcome.displayMessage)
+    }
+
+    @Test
+    fun needsAttentionValidationFailedDisplaysTheServersOwnReason() {
+        val outcome = SubmissionOutcome.NeedsAttention(NeedsAttentionReason.ValidationFailed("Email is required"))
+
+        assertEquals("Email is required", outcome.displayMessage)
+    }
+
+    @Test
+    fun submittedAndNullHaveNoDisplayMessage() {
+        assertNull(SubmissionOutcome.Submitted(synced = true).displayMessage)
+        assertNull((null as SubmissionOutcome?).displayMessage)
     }
 }

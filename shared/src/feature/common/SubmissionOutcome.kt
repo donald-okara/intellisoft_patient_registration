@@ -31,6 +31,35 @@ sealed interface SubmissionOutcome {
     ) : SubmissionOutcome
 }
 
+/**
+ * A user-facing string, never a raw exception message or enum toString() - `Failed.cause` is
+ * typically a Ktor `ClientRequestException`/`IOException` whose `.message` reads like
+ * `Client request(POST https://.../user/signin) invalid: 401 Unauthorized.`, which is
+ * implementation detail, not something to show someone trying to sign in.
+ */
+val SubmissionOutcome?.displayMessage: String?
+    get() =
+        when (this) {
+            is SubmissionOutcome.Duplicate -> {
+                message
+            }
+
+            is SubmissionOutcome.Failed -> {
+                "Something went wrong. Please try again."
+            }
+
+            is SubmissionOutcome.NeedsAttention -> {
+                when (reason) {
+                    is NeedsAttentionReason.Unauthorized -> "Your session has expired. Please sign in again."
+                    is NeedsAttentionReason.ValidationFailed -> reason.message
+                }
+            }
+
+            is SubmissionOutcome.Submitted, null -> {
+                null
+            }
+        }
+
 fun RegisterPatientResult.toSubmissionOutcome(): SubmissionOutcome =
     when (this) {
         is RegisterPatientResult.Success -> {
