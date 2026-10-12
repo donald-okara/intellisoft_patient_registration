@@ -1,5 +1,7 @@
 package ke.don.intellisoft_patient_registration.domain
 
+import kotlin.jvm.JvmInline
+
 /** The mockups' "Patient ID" - the business identifier, unique per patient, not a DB row id. */
 @JvmInline
 value class PatientId(

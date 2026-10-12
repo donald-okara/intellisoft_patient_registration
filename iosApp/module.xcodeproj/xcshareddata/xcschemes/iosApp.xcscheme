@@ -14,7 +14,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7DE578B0977B7714A91ACE5D"
-               BuildableName = "app"
+               BuildableName = "Intellisoft_patient_registration.app"
                BlueprintName = "app"
                ReferencedContainer = "container:module.xcodeproj">
             </BuildableReference>
@@ -43,7 +43,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7DE578B0977B7714A91ACE5D"
-            BuildableName = "app"
+            BuildableName = "Intellisoft_patient_registration.app"
             BlueprintName = "app"
             ReferencedContainer = "container:module.xcodeproj">
          </BuildableReference>
