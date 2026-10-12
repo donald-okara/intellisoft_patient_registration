@@ -23,6 +23,7 @@ import ke.don.intellisoft_patient_registration.domain.Gender
 import ke.don.intellisoft_patient_registration.domain.LastName
 import ke.don.intellisoft_patient_registration.domain.Patient
 import ke.don.intellisoft_patient_registration.domain.PatientId
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import org.junit.Test
@@ -75,7 +76,7 @@ class DefaultPatientRepositoryTest {
             val (repository, db) = newRepository()
 
             val result = repository.registerPatient(patient())
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals(RegisterPatientResult.Success(synced = true), result)
@@ -89,7 +90,7 @@ class DefaultPatientRepositoryTest {
             val (repository, db) = newRepository(failingApi)
 
             val result = repository.registerPatient(patient())
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals(RegisterPatientResult.Success(synced = false), result)
@@ -127,7 +128,7 @@ class DefaultPatientRepositoryTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.Unauthorized))
 
             val result = repository.registerPatient(patient())
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals(RegisterPatientResult.NeedsAttention(NeedsAttentionReason.Unauthorized), result)
@@ -140,7 +141,7 @@ class DefaultPatientRepositoryTest {
             val (repository, db) = newRepository(apiRespondingWith(HttpStatusCode.UnprocessableEntity))
 
             val result = repository.registerPatient(patient())
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             val reason = assertIs<RegisterPatientResult.NeedsAttention>(result).reason
@@ -179,7 +180,7 @@ class DefaultPatientRepositoryTest {
             val succeedingRepository =
                 DefaultPatientRepository(db.patientDao(), FakePatientApi(), PatientMapper(FakeFieldEncryptor()))
             succeedingRepository.retryUnsyncedPushes()
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertTrue(stored?.synced == true)
@@ -193,7 +194,7 @@ class DefaultPatientRepositoryTest {
             repository.registerPatient(patient())
 
             repository.retryUnsyncedPushes()
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertFalse(stored?.synced == true)
@@ -213,7 +214,7 @@ class DefaultPatientRepositoryTest {
                     PatientMapper(FakeFieldEncryptor()),
                 )
             rejectingRepository.retryUnsyncedPushes()
-            val stored = db.patientDao().findByPatientId("P1")
+            val stored = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertNull(stored)
@@ -248,7 +249,7 @@ class DefaultPatientRepositoryTest {
             val (repository, db) = newRepository(api)
 
             val result = repository.sync()
-            val stored = db.patientDao().findByPatientId("P2")
+            val stored = db.patientDao().findByPatientId("P2").first()
             db.close()
 
             assertTrue(result)
@@ -266,7 +267,7 @@ class DefaultPatientRepositoryTest {
             )
 
             val result = repository.sync()
-            val stillThere = db.patientDao().findByPatientId("existing")
+            val stillThere = db.patientDao().findByPatientId("existing").first()
             db.close()
 
             assertFalse(result)
@@ -279,7 +280,7 @@ class DefaultPatientRepositoryTest {
             val (repository, db) = newRepository()
             repository.registerPatient(patient())
 
-            val all = repository.getPatients(page = 0, pageSize = 10)
+            val all = repository.getPatients(page = 0, pageSize = 10).first()
             db.close()
 
             assertEquals(listOf(patient()), all)
@@ -293,8 +294,8 @@ class DefaultPatientRepositoryTest {
             repository.registerPatient(patient("P2"))
             repository.registerPatient(patient("P3"))
 
-            val firstPage = repository.getPatients(page = 0, pageSize = 2)
-            val secondPage = repository.getPatients(page = 1, pageSize = 2)
+            val firstPage = repository.getPatients(page = 0, pageSize = 2).first()
+            val secondPage = repository.getPatients(page = 1, pageSize = 2).first()
             db.close()
 
             assertEquals(2, firstPage.size)
@@ -309,5 +310,28 @@ class DefaultPatientRepositoryTest {
             assertFailsWith<IllegalArgumentException> { repository.getPatients(page = -1, pageSize = 10) }
             assertFailsWith<IllegalArgumentException> { repository.getPatients(page = 0, pageSize = 0) }
             db.close()
+        }
+
+    @Test
+    fun getPatientReturnsTheStoredPatientAsADomainObject() =
+        runTest {
+            val (repository, db) = newRepository()
+            repository.registerPatient(patient())
+
+            val found = repository.getPatient(PatientId("P1")).first()
+            db.close()
+
+            assertEquals(patient(), found)
+        }
+
+    @Test
+    fun getPatientReturnsNullWhenNoPatientHasThatId() =
+        runTest {
+            val (repository, db) = newRepository()
+
+            val found = repository.getPatient(PatientId("missing")).first()
+            db.close()
+
+            assertNull(found)
         }
 }

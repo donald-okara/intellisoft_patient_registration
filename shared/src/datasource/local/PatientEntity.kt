@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 /**
  * firstName/lastName/dateOfBirth hold ciphertext, not plaintext - encrypted/decrypted by the
@@ -42,21 +43,24 @@ interface PatientDao {
     @Query("DELETE FROM PatientEntity WHERE patientId IN (:patientIds)")
     suspend fun deleteByPatientIds(patientIds: Set<String>)
 
+    /** Flow, not suspend - a display-facing read that should reflect later writes automatically. */
     @Query("SELECT * FROM PatientEntity WHERE patientId = :patientId")
-    suspend fun findByPatientId(patientId: String): PatientEntity?
+    fun findByPatientId(patientId: String): Flow<PatientEntity?>
 
+    /** One-shot, not Flow - this backs sync()'s key reconciliation, which wants a single snapshot. */
     @Query("SELECT * FROM PatientEntity")
     suspend fun findAll(): List<PatientEntity>
 
     /**
      * registrationDate is ISO-8601 ("yyyy-MM-dd"), so it sorts correctly as a string - most
-     * recently registered patients first, patientId as a deterministic tiebreaker.
+     * recently registered patients first, patientId as a deterministic tiebreaker. Flow, not
+     * suspend - this backs the Patient Listing screen, which should update as rows change.
      */
     @Query("SELECT * FROM PatientEntity ORDER BY registrationDate DESC, patientId ASC LIMIT :limit OFFSET :offset")
-    suspend fun findPage(
+    fun findPage(
         limit: Int,
         offset: Int,
-    ): List<PatientEntity>
+    ): Flow<List<PatientEntity>>
 
     /** Candidates for the periodic retry worker - a Retriable push failure leaves the row here. */
     @Query("SELECT * FROM PatientEntity WHERE synced = 0")

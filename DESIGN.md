@@ -71,9 +71,17 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   (`RegisterPatientResult.DuplicatePatientId`, not a generic `Conflict`) so the reusable logic
   doesn't cost readability. Built once with `PatientRepository`, reused as-is by Vitals/General/
   Overweight next.
-- **Pagination uses plain Room `LIMIT`/`OFFSET`, not AndroidX Paging** — `getPatients(page,
-  pageSize)` is a one-shot `List<Patient>` return, not a reactive paged stream, and pulling in a
-  whole new library for that wasn't justified.
+- **Pagination uses plain Room `LIMIT`/`OFFSET`, not AndroidX Paging.** `getPatients(page,
+  pageSize)` and `getPatient(id)` return `Flow<List<Patient>>`/`Flow<Patient?>` - reactive, so a
+  later write is reflected without a manual re-fetch - but real Paging 3 on this Room version
+  (2.8.5) + iOS wasn't available to reach for: it needs Google's new `room3`/`room3-paging`
+  artifacts (a separate, breaking rewrite, still alpha/RC), or else Android-only
+  `androidx.room:room-paging`, which would fork `getPatients`' signature per platform. Not worth
+  either cost for a `List<Patient>` return this size. All display-facing DB reads
+  (`PatientDao.findByPatientId`/`findPage`, `VitalsDao`/`GeneralAssessmentDao`/
+  `OverweightAssessmentDao`'s `findByPatientId`) return `Flow` for the same reason; `findAll()`
+  (sync's key reconciliation) and `findUnsynced()` (the retry worker's pass) stay one-shot
+  `suspend` - both want a single snapshot, not an ongoing subscription.
 
 ## What was simplified or left out
 

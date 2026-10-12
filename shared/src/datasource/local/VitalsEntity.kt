@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 @Entity(indices = [Index(value = ["patientId", "visitDate"], unique = true)])
 data class VitalsEntity(
@@ -25,5 +26,5 @@ interface VitalsDao {
     suspend fun insert(vitals: VitalsEntity): Long
 
     @Query("SELECT * FROM VitalsEntity WHERE patientId = :patientId")
-    suspend fun findByPatientId(patientId: String): List<VitalsEntity>
+    fun findByPatientId(patientId: String): Flow<List<VitalsEntity>>
 }

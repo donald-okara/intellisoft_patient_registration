@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,7 +45,7 @@ class PatientDaoTest {
             val db = newDatabase()
 
             db.patientDao().insert(patient())
-            val found = db.patientDao().findByPatientId("P1")
+            val found = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals("Jane", found?.firstName)
@@ -55,7 +56,7 @@ class PatientDaoTest {
         runTest {
             val db = newDatabase()
 
-            val found = db.patientDao().findByPatientId("missing")
+            val found = db.patientDao().findByPatientId("missing").first()
             db.close()
 
             assertNull(found)
@@ -80,7 +81,7 @@ class PatientDaoTest {
             db.patientDao().insert(patient())
 
             db.patientDao().upsert(listOf(patient().copy(firstName = "Updated")))
-            val found = db.patientDao().findByPatientId("P1")
+            val found = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals("Updated", found?.firstName)
@@ -93,7 +94,7 @@ class PatientDaoTest {
             db.patientDao().insert(patient())
 
             db.patientDao().markSynced("P1", synced = true)
-            val found = db.patientDao().findByPatientId("P1")
+            val found = db.patientDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals(true, found?.synced)
@@ -122,7 +123,7 @@ class PatientDaoTest {
             db.patientDao().insert(patient("P2", registrationDate = "2025-10-31"))
             db.patientDao().insert(patient("P3", registrationDate = "2025-10-15"))
 
-            val page = db.patientDao().findPage(limit = 10, offset = 0)
+            val page = db.patientDao().findPage(limit = 10, offset = 0).first()
             db.close()
 
             assertEquals(listOf("P2", "P3", "P1"), page.map { it.patientId })
@@ -136,7 +137,7 @@ class PatientDaoTest {
             db.patientDao().insert(patient("P2", registrationDate = "2025-10-31"))
             db.patientDao().insert(patient("P3", registrationDate = "2025-10-15"))
 
-            val secondPage = db.patientDao().findPage(limit = 2, offset = 2)
+            val secondPage = db.patientDao().findPage(limit = 2, offset = 2).first()
             db.close()
 
             assertEquals(listOf("P1"), secondPage.map { it.patientId })

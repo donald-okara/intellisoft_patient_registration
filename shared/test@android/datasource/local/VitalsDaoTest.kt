@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteConstraintException
 import androidx.room.Room
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -43,7 +44,7 @@ class VitalsDaoTest {
             val db = newDatabase()
 
             db.vitalsDao().insert(vitals())
-            val found = db.vitalsDao().findByPatientId("P1")
+            val found = db.vitalsDao().findByPatientId("P1").first()
             db.close()
 
             assertEquals(1, found.size)
@@ -69,9 +70,9 @@ class VitalsDaoTest {
 
             db.vitalsDao().insert(vitals(patientId = "P1"))
             db.vitalsDao().insert(vitals(patientId = "P2"))
-            val countForP1 = db.vitalsDao().findByPatientId("P1").size
+            val forP1 = db.vitalsDao().findByPatientId("P1").first()
             db.close()
 
-            assertEquals(1, countForP1)
+            assertEquals(1, forP1.size)
         }
 }

@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 
 /** comments holds ciphertext, encrypted/decrypted by the mapper layer via FieldEncryptor. */
 @Entity(indices = [Index(value = ["patientId", "visitDate"], unique = true)])
@@ -27,5 +28,5 @@ interface OverweightAssessmentDao {
     suspend fun insert(assessment: OverweightAssessmentEntity): Long
 
     @Query("SELECT * FROM OverweightAssessmentEntity WHERE patientId = :patientId")
-    suspend fun findByPatientId(patientId: String): List<OverweightAssessmentEntity>
+    fun findByPatientId(patientId: String): Flow<List<OverweightAssessmentEntity>>
 }
