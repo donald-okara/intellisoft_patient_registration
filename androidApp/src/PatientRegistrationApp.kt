@@ -15,7 +15,9 @@ import ke.don.intellisoft_patient_registration.di.cryptoModule
 import ke.don.intellisoft_patient_registration.di.databaseModule
 import ke.don.intellisoft_patient_registration.di.httpClientModule
 import ke.don.intellisoft_patient_registration.di.mapperModule
+import ke.don.intellisoft_patient_registration.di.navigationModule
 import ke.don.intellisoft_patient_registration.di.repositoryModule
+import ke.don.intellisoft_patient_registration.di.viewModelModule
 import ke.don.intellisoft_patient_registration.di.workManagerModule
 import ke.don.intellisoft_patient_registration.work.AppWorkerFactory
 import ke.don.intellisoft_patient_registration.work.scheduleBackgroundSyncTasks
@@ -55,6 +57,8 @@ class PatientRegistrationApp : Application() {
                     repositoryModule,
                     workManagerModule,
                     clockModule,
+                    navigationModule,
+                    viewModelModule,
                 )
             }.koin
 
