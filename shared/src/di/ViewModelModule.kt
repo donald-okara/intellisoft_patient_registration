@@ -5,6 +5,7 @@ import ke.don.intellisoft_patient_registration.feature.overweightassessment.Over
 import ke.don.intellisoft_patient_registration.feature.patientlisting.PatientListingViewModel
 import ke.don.intellisoft_patient_registration.feature.patientregistration.PatientRegistrationViewModel
 import ke.don.intellisoft_patient_registration.feature.signin.SignInViewModel
+import ke.don.intellisoft_patient_registration.feature.signup.SignUpViewModel
 import ke.don.intellisoft_patient_registration.feature.splash.SplashViewModel
 import ke.don.intellisoft_patient_registration.feature.vitals.VitalsViewModel
 import org.koin.core.module.dsl.viewModel
@@ -15,6 +16,7 @@ val viewModelModule =
     module {
         viewModelOf(::SplashViewModel)
         viewModelOf(::SignInViewModel)
+        viewModelOf(::SignUpViewModel)
         viewModelOf(::PatientRegistrationViewModel)
         viewModelOf(::PatientListingViewModel)
         viewModel { params -> VitalsViewModel(get(), get(), get(), patientId = params.get()) }

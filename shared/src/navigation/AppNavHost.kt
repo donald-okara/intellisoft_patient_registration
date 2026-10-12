@@ -10,6 +10,7 @@ import ke.don.intellisoft_patient_registration.feature.overweightassessment.Over
 import ke.don.intellisoft_patient_registration.feature.patientlisting.PatientListingScreen
 import ke.don.intellisoft_patient_registration.feature.patientregistration.PatientRegistrationScreen
 import ke.don.intellisoft_patient_registration.feature.signin.SignInScreen
+import ke.don.intellisoft_patient_registration.feature.signup.SignUpScreen
 import ke.don.intellisoft_patient_registration.feature.splash.SplashScreen
 import ke.don.intellisoft_patient_registration.feature.vitals.VitalsScreen
 import org.koin.compose.koinInject
@@ -36,6 +37,9 @@ fun AppNavHost(navigator: Navigator = koinInject()) {
                 }
                 entry<Route.SignIn> {
                     SignInScreen(viewModel = koinViewModel { parametersOf(navigator) })
+                }
+                entry<Route.SignUp> {
+                    SignUpScreen(viewModel = koinViewModel { parametersOf(navigator) })
                 }
                 entry<Route.PatientRegistration> {
                     PatientRegistrationScreen(
