@@ -47,6 +47,11 @@ All responses are JSON and follow the same envelope:
 4. Typical auth error responses: `401 Unauthorized` (invalid credentials / missing or expired
    token), `422 Unprocessable Entity` (validation errors, e.g. missing `email`/`password`),
    `400 Bad Request` (malformed body), `500 Internal Server Error`.
+5. **No refresh-token endpoint exists.** The Postman collection has no `refresh`/`renew` request
+   anywhere, and Sanctum's own default personal-access-token flow (what's in use here, per the
+   `access_token` field name and the single-step `user/signin`) doesn't issue a refresh token
+   alongside the access token the way an OAuth2 flow would. The only documented recovery from an
+   expired or invalid token is `401 Unauthorized` → sign in again; there is nothing to refresh.
 
 ## Endpoint summary
 
@@ -492,3 +497,6 @@ collection. Trust the collection (and this document) over the PDF prose:
   detection.
 - Whether `visits/view` is in fact the Patient Listing data source (given its response shape)
   despite being documented as a per-patient visit history.
+- Confirm there's genuinely no refresh-token endpoint (not just an undocumented one in the
+  collection) — it drives the sign-in flow's design: a 401 on any Bearer-protected call has to
+  send the user back to a sign-in screen, not attempt a silent token refresh.
