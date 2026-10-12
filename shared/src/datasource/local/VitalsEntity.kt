@@ -1,5 +1,6 @@
 package ke.don.intellisoft_patient_registration.datasource.local
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
@@ -28,8 +29,9 @@ interface VitalsDao {
     @Query("SELECT * FROM VitalsEntity WHERE patientId = :patientId")
     fun findByPatientId(patientId: String): Flow<List<VitalsEntity>>
 
-    @Query("SELECT * FROM VitalsEntity WHERE visitDate = :visitDate")
-    fun findByVisitDate(visitDate: String): Flow<List<VitalsEntity>>
+    /** Ordered for stable paging - Room's generated PagingSource needs a deterministic row order. */
+    @Query("SELECT * FROM VitalsEntity WHERE visitDate = :visitDate ORDER BY id ASC")
+    fun findByVisitDate(visitDate: String): PagingSource<Int, VitalsEntity>
 
     /** Keyed by the row's own id, not patientId - a patient can have many vitals rows. */
     @Query("UPDATE VitalsEntity SET synced = :synced WHERE id = :id")
