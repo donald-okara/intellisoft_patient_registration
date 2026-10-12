@@ -29,4 +29,18 @@ interface GeneralAssessmentDao {
 
     @Query("SELECT * FROM GeneralAssessmentEntity WHERE patientId = :patientId")
     fun findByPatientId(patientId: String): Flow<List<GeneralAssessmentEntity>>
+
+    /** Keyed by the row's own id, not patientId - a patient can have many assessment rows. */
+    @Query("UPDATE GeneralAssessmentEntity SET synced = :synced WHERE id = :id")
+    suspend fun markSynced(
+        id: Long,
+        synced: Boolean,
+    )
+
+    @Query("DELETE FROM GeneralAssessmentEntity WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    /** Candidates for the periodic retry worker - a Retriable push failure leaves the row here. */
+    @Query("SELECT * FROM GeneralAssessmentEntity WHERE synced = 0")
+    suspend fun findUnsynced(): List<GeneralAssessmentEntity>
 }

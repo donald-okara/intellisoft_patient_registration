@@ -1,8 +1,10 @@
 package ke.don.intellisoft_patient_registration.di
 
 import android.content.Context
+import ke.don.intellisoft_patient_registration.data.DefaultGeneralAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.DefaultPatientRepository
 import ke.don.intellisoft_patient_registration.data.DefaultVitalsRepository
+import ke.don.intellisoft_patient_registration.data.GeneralAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.PatientRepository
 import ke.don.intellisoft_patient_registration.data.VitalsRepository
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
@@ -23,6 +25,13 @@ val repositoryModule =
             DefaultVitalsRepository(
                 vitalsDao = get<AppDatabase> { parametersOf(context) }.vitalsDao(),
                 vitalsApi = get(),
+            )
+        }
+        single<GeneralAssessmentRepository> { (context: Context) ->
+            DefaultGeneralAssessmentRepository(
+                generalAssessmentDao = get<AppDatabase> { parametersOf(context) }.generalAssessmentDao(),
+                visitApi = get(),
+                generalAssessmentMapper = get(),
             )
         }
     }
