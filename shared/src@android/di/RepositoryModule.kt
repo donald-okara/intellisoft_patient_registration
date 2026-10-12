@@ -2,9 +2,11 @@ package ke.don.intellisoft_patient_registration.di
 
 import android.content.Context
 import ke.don.intellisoft_patient_registration.data.DefaultGeneralAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.DefaultOverweightAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.DefaultPatientRepository
 import ke.don.intellisoft_patient_registration.data.DefaultVitalsRepository
 import ke.don.intellisoft_patient_registration.data.GeneralAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.OverweightAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.PatientRepository
 import ke.don.intellisoft_patient_registration.data.VitalsRepository
 import ke.don.intellisoft_patient_registration.datasource.local.AppDatabase
@@ -32,6 +34,13 @@ val repositoryModule =
                 generalAssessmentDao = get<AppDatabase> { parametersOf(context) }.generalAssessmentDao(),
                 visitApi = get(),
                 generalAssessmentMapper = get(),
+            )
+        }
+        single<OverweightAssessmentRepository> { (context: Context) ->
+            DefaultOverweightAssessmentRepository(
+                overweightAssessmentDao = get<AppDatabase> { parametersOf(context) }.overweightAssessmentDao(),
+                visitApi = get(),
+                overweightAssessmentMapper = get(),
             )
         }
     }
