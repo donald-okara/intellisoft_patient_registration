@@ -5,6 +5,7 @@ import dev.brewkits.kmpworkmanager.background.domain.AndroidWorkerFactory
 import dev.brewkits.kmpworkmanager.background.domain.WorkerEnvironment
 import dev.brewkits.kmpworkmanager.background.domain.WorkerResult
 import ke.don.intellisoft_patient_registration.data.GeneralAssessmentRepository
+import ke.don.intellisoft_patient_registration.data.OverweightAssessmentRepository
 import ke.don.intellisoft_patient_registration.data.PatientRepository
 import ke.don.intellisoft_patient_registration.data.VitalsRepository
 
@@ -79,16 +80,35 @@ class RetryUnsyncedGeneralAssessmentsWorker(
 }
 
 /**
+ * Retries every OverweightAssessmentEntity row left `synced = false` by a Retriable push failure
+ * - same shape as RetryUnsyncedPatientsWorker (see DefaultOverweightAssessmentRepository.retryPush).
+ */
+class RetryUnsyncedOverweightAssessmentsWorker(
+    private val overweightAssessmentRepository: OverweightAssessmentRepository,
+) : AndroidWorker {
+    override suspend fun doWork(
+        input: String?,
+        env: WorkerEnvironment,
+    ): WorkerResult {
+        overweightAssessmentRepository.retryUnsyncedPushes()
+        return WorkerResult.Success()
+    }
+
+    override fun close() = Unit
+}
+
+/**
  * Manual registry, not KSP-generated (`kmpworker-ksp` was skipped for this phase - see
  * DESIGN.md). Register each real worker here by the name passed to `enqueue(...)`.
- * [patientRepository]/[vitalsRepository]/[generalAssessmentRepository] are optional so existing
- * no-dependency callers (and the smoke test) don't need one - real app wiring will always pass
- * them once they exist.
+ * [patientRepository]/[vitalsRepository]/[generalAssessmentRepository]/[overweightAssessmentRepository]
+ * are optional so existing no-dependency callers (and the smoke test) don't need one - real app
+ * wiring will always pass them once they exist.
  */
 class AppWorkerFactory(
     patientRepository: PatientRepository? = null,
     vitalsRepository: VitalsRepository? = null,
     generalAssessmentRepository: GeneralAssessmentRepository? = null,
+    overweightAssessmentRepository: OverweightAssessmentRepository? = null,
     private val workers: Map<String, () -> AndroidWorker> =
         buildMap {
             put("NoOpWorker") { NoOpWorker() }
@@ -101,6 +121,11 @@ class AppWorkerFactory(
             if (generalAssessmentRepository != null) {
                 put("RetryUnsyncedGeneralAssessmentsWorker") {
                     RetryUnsyncedGeneralAssessmentsWorker(generalAssessmentRepository)
+                }
+            }
+            if (overweightAssessmentRepository != null) {
+                put("RetryUnsyncedOverweightAssessmentsWorker") {
+                    RetryUnsyncedOverweightAssessmentsWorker(overweightAssessmentRepository)
                 }
             }
         },

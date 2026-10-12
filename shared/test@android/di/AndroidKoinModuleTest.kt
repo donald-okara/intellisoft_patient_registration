@@ -1,6 +1,7 @@
 package ke.don.intellisoft_patient_registration.di
 
 import ke.don.intellisoft_patient_registration.data.mapper.GeneralAssessmentMapper
+import ke.don.intellisoft_patient_registration.data.mapper.OverweightAssessmentMapper
 import ke.don.intellisoft_patient_registration.data.mapper.PatientMapper
 import ke.don.intellisoft_patient_registration.datasource.local.FieldEncryptor
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -37,6 +38,7 @@ class AndroidKoinModuleTest {
         injectedParameters(
             definition<PatientMapper>(FieldEncryptor::class),
             definition<GeneralAssessmentMapper>(FieldEncryptor::class),
+            definition<OverweightAssessmentMapper>(FieldEncryptor::class),
         )
 
     @OptIn(KoinExperimentalAPI::class)

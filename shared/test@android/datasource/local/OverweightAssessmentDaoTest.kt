@@ -63,4 +63,51 @@ class OverweightAssessmentDaoTest {
             }
             db.close()
         }
+
+    @Test
+    fun markSyncedUpdatesOnlyTheSyncedFlagForThatRow() =
+        runTest {
+            val db = newDatabase()
+            val id = db.overweightAssessmentDao().insert(assessment())
+
+            db.overweightAssessmentDao().markSynced(id, synced = true)
+            val found =
+                db
+                    .overweightAssessmentDao()
+                    .findByPatientId("P1")
+                    .first()
+                    .first()
+            db.close()
+
+            assertEquals(true, found.synced)
+            assertEquals("POOR", found.generalHealth)
+        }
+
+    @Test
+    fun deleteByIdRemovesOnlyThatRow() =
+        runTest {
+            val db = newDatabase()
+            val keptId = db.overweightAssessmentDao().insert(assessment(visitDate = "2025-10-30"))
+            val removedId = db.overweightAssessmentDao().insert(assessment(visitDate = "2025-10-31"))
+
+            db.overweightAssessmentDao().deleteById(removedId)
+            val remaining = db.overweightAssessmentDao().findByPatientId("P1").first()
+            db.close()
+
+            assertEquals(listOf(keptId), remaining.map { it.id })
+        }
+
+    @Test
+    fun findUnsyncedReturnsOnlyUnsyncedRows() =
+        runTest {
+            val db = newDatabase()
+            val syncedId = db.overweightAssessmentDao().insert(assessment(visitDate = "2025-10-30"))
+            db.overweightAssessmentDao().insert(assessment(visitDate = "2025-10-31"))
+            db.overweightAssessmentDao().markSynced(syncedId, synced = true)
+
+            val unsynced = db.overweightAssessmentDao().findUnsynced()
+            db.close()
+
+            assertEquals(listOf("2025-10-31"), unsynced.map { it.visitDate })
+        }
 }
