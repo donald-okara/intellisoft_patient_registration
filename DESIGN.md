@@ -81,17 +81,24 @@ One page max. Filled in incrementally as each phase lands, not reconstructed at 
   `Syncable` — `patients/view` is the only endpoint shaped for pulling records back; `vital/add`
   and `visits/add` have no corresponding list/view endpoint to pull from, so the other three
   repositories are write-only (push + local-only reads).
-- **Pagination uses plain Room `LIMIT`/`OFFSET`, not AndroidX Paging.** `getPatients(page,
-  pageSize)` and `getPatient(id)` return `Flow<List<Patient>>`/`Flow<Patient?>` - reactive, so a
-  later write is reflected without a manual re-fetch - but real Paging 3 on this Room version
-  (2.8.5) + iOS wasn't available to reach for: it needs Google's new `room3`/`room3-paging`
-  artifacts (a separate, breaking rewrite, still alpha/RC), or else Android-only
-  `androidx.room:room-paging`, which would fork `getPatients`' signature per platform. Not worth
-  either cost for a `List<Patient>` return this size. All display-facing DB reads
-  (`PatientDao.findByPatientId`/`findPage`, `VitalsDao`/`GeneralAssessmentDao`/
-  `OverweightAssessmentDao`'s `findByPatientId`) return `Flow` for the same reason; `findAll()`
-  (sync's key reconciliation) and `findUnsynced()` (the retry worker's pass) stay one-shot
-  `suspend` - both want a single snapshot, not an ongoing subscription.
+- **Two pagination approaches, split by whether a screen actually needs one.** `getPatients(page,
+  pageSize)` has no UI consumer and stays plain Room `LIMIT`/`OFFSET` (`Flow<List<Patient>>`) -
+  reactive, so a later write is reflected without a manual re-fetch, and not worth more than that
+  for an unconsumed `List<Patient>` return. Patient Listing *is* a real infinite-scroll UI, so it
+  uses genuine AndroidX Paging 3: `VitalsDao.findByVisitDate` returns a Room-generated
+  `PagingSource<Int, VitalsEntity>`, `PatientListingRepository` wraps it in a
+  `Pager`/`PagingConfig`, and the screen consumes `Flow<PagingData<PatientListingRow>>` via
+  `collectAsLazyPagingItems()`. `room-paging`/`paging-common`/`paging-compose`/`paging-testing`
+  (2.8.5/3.5.2) all publish genuine Android *and* iOS klibs - verified directly against Google
+  Maven's Gradle module metadata before adopting them, not assumed. `PatientListingViewModel` is
+  the one ViewModel that doesn't fold everything into a single MVI `UiState`: `PagingData<T>` is
+  built to flow straight to Compose and can't be meaningfully held in a plain data class, so
+  `pagedRows` sits alongside a slimmer `uiState` (just `selectedDate`). All other display-facing
+  DB reads (`PatientDao.findByPatientId`/`findPage`, `VitalsDao`/`GeneralAssessmentDao`/
+  `OverweightAssessmentDao`'s `findByPatientId`) return a plain `Flow` for the same reactive
+  reason `getPatients` does; `findAll()` (sync's key reconciliation) and `findUnsynced()` (the
+  retry worker's pass) stay one-shot `suspend` - both want a single snapshot, not an ongoing
+  subscription.
 
 ## What was simplified or left out
 
