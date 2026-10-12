@@ -3,6 +3,7 @@ package ke.don.intellisoft_patient_registration.feature.common
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +23,7 @@ fun AppScreenColumn(
     title: String,
     modifier: Modifier = Modifier,
     floatingActionButton: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
     scrollable: Boolean = true,
     verticalSpacing: Dp = 16.dp,
     content: @Composable ColumnScope.() -> Unit,
@@ -30,6 +32,7 @@ fun AppScreenColumn(
         topBar = {
             TopAppBar(
                 title = { Text(title) },
+                actions = actions,
             )
         },
         floatingActionButton = floatingActionButton,

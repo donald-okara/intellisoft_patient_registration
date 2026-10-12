@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import ke.don.intellisoft_patient_registration.data.CachedAuthTokenProvider
 import ke.don.intellisoft_patient_registration.data.PatientListingRepository
 import ke.don.intellisoft_patient_registration.domain.PatientListingRow
 import ke.don.intellisoft_patient_registration.navigation.Navigator
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -31,6 +33,8 @@ sealed interface PatientListingIntent {
     ) : PatientListingIntent
 
     data object AddPatientClicked : PatientListingIntent
+
+    data object SignOutClicked : PatientListingIntent
 }
 
 /**
@@ -44,6 +48,7 @@ class PatientListingViewModel(
     private val patientListingRepository: PatientListingRepository,
     private val navigator: Navigator,
     private val clock: Clock,
+    private val cachedAuthTokenProvider: CachedAuthTokenProvider,
 ) : ViewModel() {
     private val today: LocalDate
         get() =
@@ -71,6 +76,13 @@ class PatientListingViewModel(
 
             is PatientListingIntent.AddPatientClicked -> {
                 navigator.goTo(Route.PatientRegistration)
+            }
+
+            is PatientListingIntent.SignOutClicked -> {
+                viewModelScope.launch {
+                    cachedAuthTokenProvider.clearToken()
+                    navigator.replaceAllWith(Route.SignIn)
+                }
             }
         }
     }
