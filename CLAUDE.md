@@ -54,6 +54,14 @@ package:
 - **`feature.<name>`** — per-screen UI + its ViewModel, one subpackage per feature. Doesn't exist
   yet (the five screens are still unbuilt).
 
+## UI & Compose Rules
+
+- **Composables should be lean and do just one thing** to allow for reusability.
+- **Screens are split into Route and Component:**
+  - **Route composable:** Handles ViewModel retrieval/injection, state collection, and navigation/side effects.
+  - **Component composable:** Pure, stateless UI component that takes state values and event callbacks.
+  - **Previews preview the Component, NOT the Route:** Ensures anything that shouldn't render (ViewModels, Koin, Navigation back stacks) is not required for previews and will therefore not break previews.
+
 ## Development workflow
 
 These are working rules for this repo, not suggestions — follow them for every change:

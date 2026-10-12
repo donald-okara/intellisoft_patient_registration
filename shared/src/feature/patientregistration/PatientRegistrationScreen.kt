@@ -39,25 +39,47 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import ke.don.intellisoft_patient_registration.data.PatientRepository
-import ke.don.intellisoft_patient_registration.data.RegisterPatientResult
 import ke.don.intellisoft_patient_registration.domain.Gender
-import ke.don.intellisoft_patient_registration.domain.Patient
-import ke.don.intellisoft_patient_registration.domain.PatientId
+import ke.don.intellisoft_patient_registration.feature.common.FieldState
+import ke.don.intellisoft_patient_registration.feature.common.SelectionState
 import ke.don.intellisoft_patient_registration.feature.common.SubmissionOutcome
-import ke.don.intellisoft_patient_registration.navigation.Navigator
-import ke.don.intellisoft_patient_registration.navigation.Route
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Route composable: collects state from [viewModel] and delegates rendering to [PatientRegistrationComponent].
+ */
 @Composable
 fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
     val submissionOutcome by viewModel.submissionOutcome.collectAsState()
+
+    PatientRegistrationComponent(
+        patientId = viewModel.patientId,
+        firstName = viewModel.firstName,
+        lastName = viewModel.lastName,
+        dateOfBirth = viewModel.dateOfBirth,
+        gender = viewModel.gender,
+        submissionOutcome = submissionOutcome,
+        onSubmit = viewModel::onSubmit,
+    )
+}
+
+/**
+ * Component composable: stateless UI layout that receives state and callbacks.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PatientRegistrationComponent(
+    patientId: FieldState,
+    firstName: FieldState,
+    lastName: FieldState,
+    dateOfBirth: SelectionState<LocalDate>,
+    gender: SelectionState<Gender>,
+    submissionOutcome: SubmissionOutcome?,
+    onSubmit: () -> Unit,
+) {
     var showDatePicker by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -115,33 +137,33 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
             }
 
             OutlinedTextField(
-                value = viewModel.patientId.value,
-                onValueChange = viewModel.patientId::onValueChanged,
+                value = patientId.value,
+                onValueChange = patientId::onValueChanged,
                 label = { Text("Patient ID") },
-                isError = viewModel.patientId.errorMessage != null,
-                supportingText = viewModel.patientId.errorMessage?.let { { Text(it) } },
+                isError = patientId.errorMessage != null,
+                supportingText = patientId.errorMessage?.let { { Text(it) } },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             OutlinedTextField(
-                value = viewModel.firstName.value,
-                onValueChange = viewModel.firstName::onValueChanged,
+                value = firstName.value,
+                onValueChange = firstName::onValueChanged,
                 label = { Text("First Name") },
-                isError = viewModel.firstName.errorMessage != null,
-                supportingText = viewModel.firstName.errorMessage?.let { { Text(it) } },
+                isError = firstName.errorMessage != null,
+                supportingText = firstName.errorMessage?.let { { Text(it) } },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             OutlinedTextField(
-                value = viewModel.lastName.value,
-                onValueChange = viewModel.lastName::onValueChanged,
+                value = lastName.value,
+                onValueChange = lastName::onValueChanged,
                 label = { Text("Last Name") },
-                isError = viewModel.lastName.errorMessage != null,
-                supportingText = viewModel.lastName.errorMessage?.let { { Text(it) } },
+                isError = lastName.errorMessage != null,
+                supportingText = lastName.errorMessage?.let { { Text(it) } },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth(),
@@ -163,12 +185,12 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
                     }
                 }
                 OutlinedTextField(
-                    value = viewModel.dateOfBirth.selected?.toString() ?: "",
+                    value = dateOfBirth.selected?.toString() ?: "",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Select Date of Birth") },
-                    isError = viewModel.dateOfBirth.errorMessage != null,
-                    supportingText = viewModel.dateOfBirth.errorMessage?.let { { Text(it) } },
+                    isError = dateOfBirth.errorMessage != null,
+                    supportingText = dateOfBirth.errorMessage?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth(),
                     interactionSource = interactionSource,
                 )
@@ -187,13 +209,13 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
                 ) {
                     Gender.entries.forEach { option ->
                         FilterChip(
-                            selected = viewModel.gender.selected == option,
-                            onClick = { viewModel.gender.select(option) },
+                            selected = gender.selected == option,
+                            onClick = { gender.select(option) },
                             label = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
                         )
                     }
                 }
-                viewModel.gender.errorMessage?.let { errorMsg ->
+                gender.errorMessage?.let { errorMsg ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = errorMsg,
@@ -204,7 +226,7 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
             }
 
             Button(
-                onClick = viewModel::onSubmit,
+                onClick = onSubmit,
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
             ) {
                 Text("Register Patient")
@@ -225,7 +247,7 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
                                     .fromEpochMilliseconds(millis)
                                     .toLocalDateTime(TimeZone.UTC)
                                     .date
-                            viewModel.dateOfBirth.select(localDate)
+                            dateOfBirth.select(localDate)
                         }
                         showDatePicker = false
                     },
@@ -247,35 +269,15 @@ fun PatientRegistrationScreen(viewModel: PatientRegistrationViewModel) {
 @Composable
 @Preview
 private fun PatientRegistrationScreenPreview() {
-    val dummyRepository =
-        remember {
-            object : PatientRepository {
-                override suspend fun registerPatient(patient: Patient): RegisterPatientResult =
-                    RegisterPatientResult.Success(synced = true)
-
-                override fun getPatient(id: PatientId): Flow<Patient?> = flowOf(null)
-
-                override fun getPatients(
-                    page: Int,
-                    pageSize: Int,
-                ): Flow<List<Patient>> = flowOf(emptyList())
-
-                override suspend fun retryUnsyncedPushes() {}
-
-                override suspend fun sync(): Boolean = true
-            }
-        }
-    val dummyNavigator = remember { Navigator(Route.PatientRegistration) }
-    val viewModel =
-        remember {
-            PatientRegistrationViewModel(
-                patientRepository = dummyRepository,
-                navigator = dummyNavigator,
-                clock = Clock.System,
-            )
-        }
-
     MaterialTheme {
-        PatientRegistrationScreen(viewModel = viewModel)
+        PatientRegistrationComponent(
+            patientId = FieldState(),
+            firstName = FieldState(),
+            lastName = FieldState(),
+            dateOfBirth = SelectionState(),
+            gender = SelectionState(),
+            submissionOutcome = null,
+            onSubmit = {},
+        )
     }
 }
