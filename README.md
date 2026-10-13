@@ -6,6 +6,29 @@ forms, and browsing a date-filterable patient listing. Built for Intellisoft's
 ["Mobile App development practical"](docs/Mobile%20App%20Development%20Practical%20-%20v2.pdf)
 take-home assignment.
 
+## Deliverables
+
+All four items the assignment brief requires are complete. Each line below links to the
+evidence for it:
+
+- [x] **Git history spanning ≥2 working sessions**, incremental commits rather than one bulk
+      commit — see the [commit history](https://github.com/donald-okara/intellisoft_patient_registration/commits/main).
+- [x] **Screen recording** (<5 min) of the full flow: registration → vitals → assessment →
+      listing filter — [`assets/part_1.mp4`](assets/part_1.mp4) +
+      [`assets/part_2.mp4`](assets/part_2.mp4) (split in two; see
+      [`assets/README.md`](assets/README.md) for why).
+- [x] **Unit tests** — BMI calc/classification
+      ([`BmiTest.kt`](shared/test/domain/BmiTest.kt)); mandatory-field validation
+      ([`ValidatorsTest.kt`](shared/test/feature/common/ValidatorsTest.kt)); duplicate Patient
+      ID rejection and one Room DAO test
+      ([`PatientDaoTest.kt`](shared/test@android/datasource/local/PatientDaoTest.kt)); one
+      submission per date
+      ([`VitalsDaoTest.kt`](shared/test@android/datasource/local/VitalsDaoTest.kt)); repository
+      test against a faked API
+      ([`DefaultPatientRepositoryTest.kt`](shared/test@android/data/DefaultPatientRepositoryTest.kt)).
+- [x] [`DESIGN.md`](DESIGN.md) — key design/architecture decisions and what was deliberately
+      simplified or left out.
+
 ## What it does
 
 Five screens, chained together by one BMI-driven branch:
@@ -24,12 +47,6 @@ Five screens, chained together by one BMI-driven branch:
 
 Every form save writes to a local Room/SQLite database first, then syncs to the backend
 described in [`docs/endpoints.md`](docs/endpoints.md).
-
-## Status
-
-This repository currently holds the generated Kotlin Multiplatform project skeleton only —
-none of the five screens, the local database, or the API client have been implemented yet.
-Treat the `shared` module's `App.kt`/`Greeting.kt`/`Platform.kt` as scaffolding to be replaced.
 
 ## Project structure
 
@@ -79,21 +96,6 @@ Required test coverage per the assignment: BMI calculation and BMI-status classi
 (including boundary values 18.5 and 25), form validation (mandatory fields, duplicate Patient
 ID, one submission per date), one Room DAO test, and one repository test against a faked or
 mocked API.
-
-## Deliverables checklist
-
-Per the assignment brief — not yet satisfied by this skeleton:
-
-- [x] Git history spanning at least two working sessions (incremental commits, not one bulk
-      commit)
-- [x] Screen recording (<5 min) of the full flow: registration → vitals → assessment →
-      listing filter — [`assets/part_1.mp4`](assets/part_1.mp4) +
-      [`assets/part_2.mp4`](assets/part_2.mp4) (split in two; see
-      [`assets/README.md`](assets/README.md) for why)
-- [x] Unit tests: BMI calc/classification, form validation, Room DAO, repository (faked/mocked
-      API)
-- [x] `DESIGN.md` (max one page): 2–3 key design decisions and why; what was deliberately
-      simplified or left out
 
 ## Learn more
 
